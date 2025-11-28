@@ -69,7 +69,7 @@ X Crypto Agent is a Chrome browser extension that uses Google Gemini AI to autom
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/x-reply.git
+   git clone https://github.com/Bihruze/x-reply.git
    ```
 
 2. **Navigate to the project folder**
