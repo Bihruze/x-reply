@@ -2,14 +2,17 @@ console.log("X Crypto Agent: Content script loaded (v3).");
 
 let repliedAuthors = new Map(); // Map of username -> timestamp
 let targetingSettings = {
-  dailyLimit: 50,
+  dailyLimit: 15, // ANTI-SPAM: Reduced from 50 to 15 - safer for new accounts
   minFollowers: 0,
   maxFollowers: 0,
   nicheKeywords: '',
   blacklist: '',
-  whitelist: ''
+  whitelist: '',
+  hourlyLimit: 5 // ANTI-SPAM: New hourly limit
 };
 let todayReplyCount = 0;
+let hourlyReplyCount = 0;
+let hourlyResetTime = Date.now();
 
 // Load targeting settings
 chrome.storage.sync.get(['dailyLimit', 'minFollowers', 'maxFollowers', 'nicheKeywords', 'blacklist', 'whitelist'], (data) => {
@@ -48,6 +51,33 @@ function isWhitelisted(username) {
 // Check daily limit
 function isDailyLimitReached() {
   return todayReplyCount >= targetingSettings.dailyLimit;
+}
+
+// ANTI-SPAM: Check hourly limit
+function isHourlyLimitReached() {
+  // Reset hourly counter if an hour has passed
+  if (Date.now() - hourlyResetTime >= 3600000) {
+    hourlyReplyCount = 0;
+    hourlyResetTime = Date.now();
+  }
+  return hourlyReplyCount >= targetingSettings.hourlyLimit;
+}
+
+// ANTI-SPAM: Check if we should cool down (spread activity throughout the day)
+function shouldCoolDown() {
+  // If we've done more than 3 replies in the last 15 minutes, suggest a cooldown
+  const recentThreshold = 3;
+  const timeWindow = 15 * 60 * 1000; // 15 minutes
+
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ replyHistory: [] }, (data) => {
+      const now = Date.now();
+      const recentReplies = (data.replyHistory || []).filter(r =>
+        now - r.timestamp < timeWindow
+      ).length;
+      resolve(recentReplies >= recentThreshold);
+    });
+  });
 }
 
 // Extract follower count from tweet element (if visible)
@@ -330,7 +360,13 @@ function addReplyButton(tweetElement) {
 
   // Check daily limit (unless whitelisted)
   if (!isWhitelisted(authorName) && isDailyLimitReached()) {
-    console.log('Daily reply limit reached');
+    console.log('Daily reply limit reached - protecting your account from spam flags');
+    return;
+  }
+
+  // ANTI-SPAM: Check hourly limit (unless whitelisted)
+  if (!isWhitelisted(authorName) && isHourlyLimitReached()) {
+    console.log('Hourly reply limit reached - wait before sending more replies');
     return;
   }
 
@@ -435,8 +471,9 @@ async function handleReplyClick(tweetElement, button, intent) {
       console.log("Got reply, injecting...");
       injectReply(response.reply);
 
-      // Track reply for analytics
+      // Track reply for analytics and rate limiting
       todayReplyCount++;
+      hourlyReplyCount++; // ANTI-SPAM: Track hourly count too
       chrome.storage.local.get({ replyHistory: [] }, (data) => {
         const history = data.replyHistory || [];
         history.push({
@@ -597,12 +634,17 @@ async function injectReply(text) {
         // Check if Auto Comment is enabled and click Post button
         chrome.storage.sync.get({ autoComment: false, actionDelay: 10 }, (settings) => {
           if (settings.autoComment) {
-            // Add random variance to delay (±20%)
-            const variance = settings.actionDelay * 0.2;
-            const randomDelay = settings.actionDelay + (Math.random() * variance * 2 - variance);
-            const delayMs = randomDelay * 1000;
+            // ANTI-SPAM: More human-like delay with higher minimum
+            const baseDelay = Math.max(settings.actionDelay, 15); // Minimum 15 seconds
+            const variance = baseDelay * 0.35; // ±35% variance for more randomness
+            const randomDelay = baseDelay + (Math.random() * variance * 2 - variance);
 
-            console.log(`Auto Comment enabled. Posting in ${randomDelay.toFixed(1)} seconds...`);
+            // ANTI-SPAM: Occasional "thinking pause" (15% chance of extra 5-15s)
+            const thinkingPause = Math.random() < 0.15 ? (5 + Math.random() * 10) : 0;
+            const finalDelay = randomDelay + thinkingPause;
+            const delayMs = finalDelay * 1000;
+
+            console.log(`Auto Comment enabled. Posting in ${finalDelay.toFixed(1)} seconds (human-like delay)...`);
 
             setTimeout(() => {
               // Try multiple selectors for the post button

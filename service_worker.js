@@ -213,15 +213,21 @@ async function processNextBulkItem() {
     bulkResults: bulkResults
   });
 
-  // Schedule next item
+  // Schedule next item with human-like delay to avoid spam detection
   if (nextIndex < bulkQueue.length) {
-    // Randomize delay: delay ± 20%
-    const variance = actionDelay * 0.2;
-    const randomDelay = actionDelay + (Math.random() * variance * 2 - variance);
-    // Ensure minimum 5 seconds
-    const finalDelay = Math.max(5, randomDelay);
+    // ANTI-SPAM: More aggressive randomization and higher minimum delays
+    // Twitter's bot detection looks for regular patterns
+    const baseDelay = Math.max(actionDelay, 30); // Minimum 30 seconds base delay
+    const variance = baseDelay * 0.4; // ±40% variance for more randomness
+    const randomDelay = baseDelay + (Math.random() * variance * 2 - variance);
 
-    console.log(`⏳ Waiting ${finalDelay.toFixed(1)}s before next item...`);
+    // Add occasional longer "human pause" (10% chance of 60-120s extra delay)
+    const humanPause = Math.random() < 0.1 ? (60 + Math.random() * 60) : 0;
+
+    // Ensure minimum 25 seconds between bulk actions
+    const finalDelay = Math.max(25, randomDelay + humanPause);
+
+    console.log(`⏳ Waiting ${finalDelay.toFixed(1)}s before next item (anti-spam delay)...`);
     chrome.alarms.create("processBulkQueue", { when: Date.now() + (finalDelay * 1000) });
   } else {
     console.log("🎉 All items processed!");
@@ -278,17 +284,20 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 //
 // FREE TIER: 15 requests/minute (no credit card required)
 // ============================================================
-const API_KEY = ""; // <-- PASTE YOUR API KEY HERE
+const API_KEY = "AIzaSyCIIM7WcDx8DEDhlsXHTAyDZCEpdS1U9zY"; // <-- PASTE YOUR API KEY HERE
 // ============================================================
 
 const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 
-// Rate limiting
+// Rate limiting - Conservative settings to avoid API bans and spam detection
 const rateLimiter = {
   queue: [],
   processing: false,
-  minDelay: 1000, // 1 second between requests
+  minDelay: 4500, // 4.5 seconds between requests (max ~13 req/min, under Gemini's 15/min limit)
   lastRequest: 0,
+  requestsThisMinute: 0,
+  minuteStart: Date.now(),
+  maxRequestsPerMinute: 12, // Stay well under Gemini's 15/min limit
 
   async add(fn) {
     return new Promise((resolve, reject) => {
@@ -302,7 +311,24 @@ const rateLimiter = {
     this.processing = true;
 
     const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequest;
+
+    // Reset minute counter if a minute has passed
+    if (now - this.minuteStart >= 60000) {
+      this.requestsThisMinute = 0;
+      this.minuteStart = now;
+    }
+
+    // If we've hit the per-minute limit, wait until the next minute
+    if (this.requestsThisMinute >= this.maxRequestsPerMinute) {
+      const waitTime = 60000 - (now - this.minuteStart) + 1000; // Wait until next minute + 1s buffer
+      console.log(`Rate limit: waiting ${(waitTime/1000).toFixed(1)}s for next minute window`);
+      await new Promise(r => setTimeout(r, waitTime));
+      this.requestsThisMinute = 0;
+      this.minuteStart = Date.now();
+    }
+
+    // Enforce minimum delay between requests
+    const timeSinceLastRequest = Date.now() - this.lastRequest;
     if (timeSinceLastRequest < this.minDelay) {
       await new Promise(r => setTimeout(r, this.minDelay - timeSinceLastRequest));
     }
@@ -310,6 +336,7 @@ const rateLimiter = {
     const { fn, resolve, reject } = this.queue.shift();
     try {
       const result = await fn();
+      this.requestsThisMinute++;
       resolve(result);
     } catch (error) {
       reject(error);
@@ -1504,8 +1531,9 @@ async function addToMentionQueue(username) {
   }
 }
 
-// Alarm for processing queue
-chrome.alarms.create("processMentionQueue", { periodInMinutes: 10 });
+// Alarm for processing queue - Less frequent to avoid spam patterns
+// ANTI-SPAM: Process mentions every 30 minutes instead of 10
+chrome.alarms.create("processMentionQueue", { periodInMinutes: 30 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "processMentionQueue") {

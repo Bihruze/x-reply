@@ -2,6 +2,8 @@
 console.log("X Crypto Agent: Notifications script loaded.");
 
 let autoReplyEnabled = false;
+let lastAutoReplyTime = 0;
+const AUTO_REPLY_COOLDOWN = 60000; // ANTI-SPAM: 60 second cooldown between auto-replies
 
 // Check initial setting
 chrome.storage.sync.get('autoReplyEnabled', (data) => {
@@ -89,6 +91,14 @@ function processNotification(notificationElement) {
   if (!replyTextIndicator) {
     return; // If it's just a mention, we are done (queued). If it's a reply, continue to auto-reply in place.
   }
+
+  // ANTI-SPAM: Check cooldown before auto-replying
+  const now = Date.now();
+  if (now - lastAutoReplyTime < AUTO_REPLY_COOLDOWN) {
+    console.log(`Auto-reply cooldown active. Waiting ${((AUTO_REPLY_COOLDOWN - (now - lastAutoReplyTime)) / 1000).toFixed(0)}s...`);
+    return;
+  }
+  lastAutoReplyTime = now;
 
   // Extract the reply content and author
   const tweetTextElement = notificationElement.querySelector('[data-testid="tweetText"]');
