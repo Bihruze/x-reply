@@ -2,36 +2,21 @@ console.log("X Crypto Agent: Content script loaded (v3).");
 
 let repliedAuthors = new Map(); // Map of username -> timestamp
 let targetingSettings = {
-  dailyLimit: 15, // ANTI-SPAM: Reduced from 50 to 15 - safer for new accounts
   minFollowers: 0,
   maxFollowers: 0,
   nicheKeywords: '',
   blacklist: '',
-  whitelist: '',
-  hourlyLimit: 5 // ANTI-SPAM: New hourly limit
+  whitelist: ''
 };
-let todayReplyCount = 0;
-let hourlyReplyCount = 0;
-let hourlyResetTime = Date.now();
 
 // Load targeting settings
-chrome.storage.sync.get(['dailyLimit', 'minFollowers', 'maxFollowers', 'nicheKeywords', 'blacklist', 'whitelist'], (data) => {
-  if (data.dailyLimit) targetingSettings.dailyLimit = data.dailyLimit;
+chrome.storage.sync.get(['minFollowers', 'maxFollowers', 'nicheKeywords', 'blacklist', 'whitelist'], (data) => {
   if (data.minFollowers) targetingSettings.minFollowers = data.minFollowers;
   if (data.maxFollowers) targetingSettings.maxFollowers = data.maxFollowers;
   if (data.nicheKeywords) targetingSettings.nicheKeywords = data.nicheKeywords;
   if (data.blacklist) targetingSettings.blacklist = data.blacklist;
   if (data.whitelist) targetingSettings.whitelist = data.whitelist;
   console.log('Targeting settings loaded:', targetingSettings);
-});
-
-// Load today's reply count
-chrome.storage.local.get({ replyHistory: [] }, (data) => {
-  const today = new Date().toDateString();
-  todayReplyCount = (data.replyHistory || []).filter(r =>
-    new Date(r.timestamp).toDateString() === today
-  ).length;
-  console.log('Today reply count:', todayReplyCount);
 });
 
 // Check if user is in blacklist
@@ -48,37 +33,6 @@ function isWhitelisted(username) {
   return whitelist.includes(username.toLowerCase());
 }
 
-// Check daily limit
-function isDailyLimitReached() {
-  return todayReplyCount >= targetingSettings.dailyLimit;
-}
-
-// ANTI-SPAM: Check hourly limit
-function isHourlyLimitReached() {
-  // Reset hourly counter if an hour has passed
-  if (Date.now() - hourlyResetTime >= 3600000) {
-    hourlyReplyCount = 0;
-    hourlyResetTime = Date.now();
-  }
-  return hourlyReplyCount >= targetingSettings.hourlyLimit;
-}
-
-// ANTI-SPAM: Check if we should cool down (spread activity throughout the day)
-function shouldCoolDown() {
-  // If we've done more than 3 replies in the last 15 minutes, suggest a cooldown
-  const recentThreshold = 3;
-  const timeWindow = 15 * 60 * 1000; // 15 minutes
-
-  return new Promise((resolve) => {
-    chrome.storage.local.get({ replyHistory: [] }, (data) => {
-      const now = Date.now();
-      const recentReplies = (data.replyHistory || []).filter(r =>
-        now - r.timestamp < timeWindow
-      ).length;
-      resolve(recentReplies >= recentThreshold);
-    });
-  });
-}
 
 // Extract follower count from tweet element (if visible)
 function getFollowerCount(tweetElement) {
@@ -358,17 +312,8 @@ function addReplyButton(tweetElement) {
     return;
   }
 
-  // Check daily limit (unless whitelisted)
-  if (!isWhitelisted(authorName) && isDailyLimitReached()) {
-    console.log('Daily reply limit reached - protecting your account from spam flags');
-    return;
-  }
-
-  // ANTI-SPAM: Check hourly limit (unless whitelisted)
-  if (!isWhitelisted(authorName) && isHourlyLimitReached()) {
-    console.log('Hourly reply limit reached - wait before sending more replies');
-    return;
-  }
+  // NOT: Manuel AI Reply butonunda limit yok - kullanıcı istediği kadar kullanabilir
+  // Limitler sadece otomatik yanıtlar için geçerli (auto-reply, bulk process)
 
   // Check follower count range (unless whitelisted)
   if (!isWhitelisted(authorName)) {
@@ -471,9 +416,7 @@ async function handleReplyClick(tweetElement, button, intent) {
       console.log("Got reply, injecting...");
       injectReply(response.reply);
 
-      // Track reply for analytics and rate limiting
-      todayReplyCount++;
-      hourlyReplyCount++; // ANTI-SPAM: Track hourly count too
+      // Track reply for analytics
       chrome.storage.local.get({ replyHistory: [] }, (data) => {
         const history = data.replyHistory || [];
         history.push({

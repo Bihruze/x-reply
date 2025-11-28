@@ -547,14 +547,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveTargetingBtn.addEventListener('click', () => {
-      // ANTI-SPAM: Safer default limits
       const settings = {
-        dailyLimit: Math.min(parseInt(document.getElementById('daily-limit')?.value) || 15, 30), // Max 30/day
         minFollowers: parseInt(document.getElementById('min-followers')?.value) || 0,
         maxFollowers: parseInt(document.getElementById('max-followers')?.value) || 0,
         nicheKeywords: document.getElementById('niche-keywords')?.value || '',
-        blacklist: document.getElementById('blacklist-users')?.value || '',
-        hourlyLimit: Math.min(Math.ceil((parseInt(document.getElementById('daily-limit')?.value) || 15) / 6), 8) // Auto-calculate hourly limit, max 8/hour
+        blacklist: document.getElementById('blacklist-users')?.value || ''
       };
       chrome.storage.sync.set(settings, () => {
         alert('Targeting settings saved!');
