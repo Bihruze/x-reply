@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Crypto Agent - Analytics Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-title">
+                <div class="header-icon">X</div>
+                <div>
+                    <h1>Analytics Dashboard</h1>
+                    <p>Real-time performance metrics</p>
+                </div>
+            </div>
+            <button id="refresh-btn" class="refresh-btn">
+                🔄 Refresh Data
+            </button>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">Total Replies</div>
+                <div class="stat-value" id="total-replies">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Unique Users</div>
+                <div class="stat-value" id="unique-users">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Today's Replies</div>
+                <div class="stat-value" id="today-replies">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">This Week</div>
+                <div class="stat-value" id="week-replies">0</div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title">Activity Overview</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title">Tone Distribution</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="languageChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="activity-section">
+            <div class="section-header">
+                <div class="section-title">Recent Activity</div>
+            </div>
+            <div class="table-container">
+                <table id="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Action</th>
+                            <th>User</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body">
+                        <!-- Logs will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Top Accounts -->
+        <div class="activity-section" style="margin-top: 20px;">
+            <div class="section-header">
+                <div class="section-title">Top Accounts</div>
+            </div>
+            <div id="top-accounts-list"></div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+
+</html>

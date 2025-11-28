@@ -1,0 +1,56 @@
+{
+  "extName": {
+    "message": "X Reply"
+  },
+  "extDescription": {
+    "message": "Un agente de IA para X (Twitter) especializado en interacciones de Cripto y Web3."
+  },
+  "popup_title": {
+    "message": "Configuración del Agente Cripto para X"
+  },
+  "popup_select_persona": {
+    "message": "Seleccionar Persona:"
+  },
+  "popup_memory_label": {
+    "message": "Tu Filosofía de Inversión (Memoria):"
+  },
+  "popup_memory_placeholder": {
+    "message": "ej: 'Soy un maxi de Bitcoin', 'No me gusta ETH'"
+  },
+  "popup_auto_reply_label": {
+    "message": "Habilitar Auto-Respuesta a Menciones:"
+  },
+  "popup_save_button": {
+    "message": "Guardar Configuración"
+  },
+  "popup_save_success_alert": {
+    "message": "¡Configuración guardada con éxito!"
+  },
+  "content_ai_reply_button": {
+    "message": "Respuesta IA"
+  },
+  "content_replying_button": {
+    "message": "Respondiendo..."
+  },
+  "content_error_no_native_button": {
+    "message": "No se pudo encontrar el botón de respuesta de Twitter."
+  },
+  "content_error_no_ai_reply": {
+    "message": "No se pudo obtener la respuesta de la IA."
+  },
+  "content_error_no_author": {
+    "message": "No se pudo determinar el autor del tuit. No se puede proceder."
+  },
+  "content_tick_title_replied": {
+    "message": "Ya has respondido a este usuario antes."
+  },
+  "content_tick_title_not_replied": {
+    "message": "Aún no has respondido a este usuario."
+  },
+  "notification_error_no_reply_button": {
+    "message": "No se pudo encontrar el botón de respuesta en la notificación."
+  },
+  "notification_error_no_composer": {
+    "message": "No se pudo encontrar el cuadro de texto para redactar tuits."
+  }
+}

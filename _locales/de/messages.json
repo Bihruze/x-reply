@@ -1,0 +1,56 @@
+{
+  "extName": {
+    "message": "X Reply"
+  },
+  "extDescription": {
+    "message": "Ein KI-Agent für X (Twitter), spezialisiert auf Krypto- und Web3-Interaktionen."
+  },
+  "popup_title": {
+    "message": "Einstellungen des Krypto-Agenten für X"
+  },
+  "popup_select_persona": {
+    "message": "Persona auswählen:"
+  },
+  "popup_memory_label": {
+    "message": "Ihre Anlagephilosophie (Gedächtnis):"
+  },
+  "popup_memory_placeholder": {
+    "message": "z.B. 'Ich bin ein Bitcoin-Maxi', 'Ich mag ETH nicht'"
+  },
+  "popup_auto_reply_label": {
+    "message": "Automatische Antwort auf Erwähnungen aktivieren:"
+  },
+  "popup_save_button": {
+    "message": "Einstellungen speichern"
+  },
+  "popup_save_success_alert": {
+    "message": "Einstellungen erfolgreich gespeichert!"
+  },
+  "content_ai_reply_button": {
+    "message": "KI-Antwort"
+  },
+  "content_replying_button": {
+    "message": "Antworten..."
+  },
+  "content_error_no_native_button": {
+    "message": "Der Antwort-Button von Twitter konnte nicht gefunden werden."
+  },
+  "content_error_no_ai_reply": {
+    "message": "Die KI-Antwort konnte nicht abgerufen werden."
+  },
+  "content_error_no_author": {
+    "message": "Der Autor des Tweets konnte nicht ermittelt werden. Vorgang nicht möglich."
+  },
+  "content_tick_title_replied": {
+    "message": "Sie haben diesem Benutzer bereits geantwortet."
+  },
+  "content_tick_title_not_replied": {
+    "message": "Sie haben diesem Benutzer noch nicht geantwortet."
+  },
+  "notification_error_no_reply_button": {
+    "message": "Der Antwort-Button in der Benachrichtigung konnte nicht gefunden werden."
+  },
+  "notification_error_no_composer": {
+    "message": "Das Textfeld zum Verfassen von Tweets konnte nicht gefunden werden."
+  }
+}
