@@ -399,9 +399,25 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('No URLs to process');
         return;
       }
-      if (confirm(`Start processing ${data.bulkUrls.length} tweets?`)) {
+
+      // Check if Auto Comment is enabled - required for bulk process
+      const settings = await chrome.storage.sync.get({ autoComment: false });
+      if (!settings.autoComment) {
+        const enableAutoComment = confirm(
+          'Auto Comment must be enabled for bulk process to work.\n\n' +
+          'Do you want to enable Auto Comment now?'
+        );
+        if (enableAutoComment) {
+          chrome.storage.sync.set({ autoComment: true });
+          if (autoCommentToggle) autoCommentToggle.checked = true;
+        } else {
+          return;
+        }
+      }
+
+      if (confirm(`Start processing ${data.bulkUrls.length} tweets?\n\nMake sure Auto Comment is ON in the Reply tab.`)) {
         chrome.runtime.sendMessage({ action: 'startBulkProcess', urls: data.bulkUrls });
-        alert('Bulk process started in background!');
+        alert('Bulk process started in background!\n\nTabs will open, generate AI replies, post them, and close automatically.');
       }
     });
   }

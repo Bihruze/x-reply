@@ -128,10 +128,75 @@ async function executeBulkAction(tabId, retryCount = 0) {
 
     // Wait for reply to be generated and posted
     if (result?.success) {
-      await new Promise(r => setTimeout(r, 8000));
+      // Get actionDelay setting to calculate proper wait time
+      const settings = await chrome.storage.sync.get({ actionDelay: 15, autoComment: false });
+
+      if (!settings.autoComment) {
+        console.log('Auto Comment is disabled. Bulk process requires Auto Comment to be enabled.');
+        // Wait a bit then close - user needs to enable auto comment
+        await new Promise(r => setTimeout(r, 5000));
+        try {
+          await chrome.tabs.remove(tabId);
+        } catch {
+          console.log('Tab already closed');
+        }
+        return false;
+      }
+
+      // Calculate wait time:
+      // - AI generation: ~5-8 seconds
+      // - Reply injection: ~1 second
+      // - actionDelay before posting: settings.actionDelay seconds
+      // - Post action + verification: ~2 seconds
+      // Total: AI time + actionDelay + buffer
+      const aiGenerationTime = 8000; // 8 seconds for AI to generate reply
+      const actionDelayMs = settings.actionDelay * 1000; // use user's setting
+      const bufferTime = 3000; // 3 seconds buffer for posting and verification
+      const totalWaitTime = aiGenerationTime + actionDelayMs + bufferTime;
+
+      console.log(`Waiting ${totalWaitTime / 1000}s for reply to be generated and posted...`);
+
+      // Wait for reply to be generated, injected, and posted
+      await new Promise(r => setTimeout(r, totalWaitTime));
+
+      // Verify that reply was posted by checking if reply box is gone
+      try {
+        const verifyResults = await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          function: () => {
+            // Check if reply textbox is still open (means reply wasn't posted)
+            const replyBox = document.querySelector('div[data-testid="tweetTextarea_0"]') ||
+                           document.querySelector('div[data-testid="tweetTextarea_1"]');
+            return { replyBoxExists: !!replyBox };
+          }
+        });
+
+        const verifyResult = verifyResults[0]?.result;
+        if (verifyResult?.replyBoxExists) {
+          console.log('Reply box still exists, waiting more and trying to click post...');
+          // Try to click post button one more time
+          await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            function: () => {
+              const postBtn = document.querySelector('button[data-testid="tweetButton"]') ||
+                             document.querySelector('button[data-testid="tweetButtonInline"]');
+              if (postBtn && !postBtn.disabled) {
+                postBtn.click();
+                return true;
+              }
+              return false;
+            }
+          });
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      } catch (e) {
+        console.log('Verification error (tab may be navigating):', e.message);
+      }
+
       // Close the tab after processing
       try {
         await chrome.tabs.remove(tabId);
+        console.log('Tab closed successfully after posting reply');
       } catch {
         console.log('Tab already closed');
       }
