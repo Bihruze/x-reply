@@ -25,14 +25,14 @@ X Crypto Agent is a Chrome browser extension that uses Google Gemini AI to autom
 ## Features
 
 ### Core Features
-- **AI-Powered Reply Generation** - Generate intelligent replies with a single click
-- **Sentiment Analysis** - Automatically detects tweet sentiment (Positive/Negative/Neutral)
-- **Language Detection** - Detects tweet language and responds in the same language
+- **AI-Powered Reply Generation** - Generate intelligent, human-like replies with a single click
+- **Smart Language Detection** - Automatically detects tweet language and responds in the same language (English tweet = English reply, Turkish tweet = Turkish reply)
+- **Natural Replies** - 2 sentences, ~30 words, no abbreviations (ngl, tbh, lfg), no emojis, no exclamation marks
 - **Link Summarization** - Analyzes and summarizes links in tweets for better context
 - **Author Style Analysis** - Analyzes the author's writing style for more relevant replies
 
 ### Content Generation
-- **Project Post Generator** - Create promotional posts for crypto projects (5 style options)
+- **Project Post Generator** - Create promotional posts for crypto projects
 - **Viral Post Generator** - Generate high-engagement tweet variations
 - **Hashtag Suggester** - AI-powered hashtag recommendations
 - **Competitor Analysis** - Analyze competitor Twitter accounts
@@ -40,8 +40,10 @@ X Crypto Agent is a Chrome browser extension that uses Google Gemini AI to autom
 ### Automation
 - **Auto-Reply to Mentions** - Automatically respond to notifications
 - **Auto-Comment** - Post replies automatically with configurable delays
+- **Auto-Like** - Automatically like the original post when replying
 - **Scheduled Posts** - Schedule tweets for future posting
-- **Bulk Auto-Comment** - Process multiple tweet URLs in queue
+- **Bulk Auto-Comment** - Process multiple tweet URLs in queue with 2-minute intervals
+- **Stop/Pause Bulk Process** - Stop bulk processing anytime with progress tracking
 
 ### Personalization
 - **Multiple Personas** - Choose from Degen, Analyst, Roast, Maxi, Builder, Neutral, or Custom
@@ -54,12 +56,14 @@ X Crypto Agent is a Chrome browser extension that uses Google Gemini AI to autom
 - **Daily Reply Limits** - Control engagement volume
 - **Follower Range Filtering** - Target users by follower count
 - **Whitelist/Blacklist** - Control who you engage with
-- **Reply Tracking** - Track who you've replied to (green/red indicators)
+- **Reply Tracking** - Visual indicators showing reply status:
+  - 🟢 Green dot = Replied within last 24 hours
+  - 🔴 Red dot = Not replied yet or reply older than 24 hours
 - **Analytics Dashboard** - View reply statistics, charts, and top accounts
 
 ### Multi-Language Support
 - English, Turkish, German, French, Spanish UI
-- Auto-detect or manual language selection for replies
+- Auto-detect tweet language and reply in the same language
 
 ---
 
@@ -100,22 +104,32 @@ X Crypto Agent is a Chrome browser extension that uses Google Gemini AI to autom
 
 ## API Key Setup
 
-This extension requires a **Google Gemini API Key** to function. The API has a generous free tier.
+This extension requires a **Google Gemini API Key** to function.
 
-### Step 1: Get Your Free API Key
+### Step 1: Get Your API Key
 
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
 2. Sign in with your Google account
 3. Click **Create API Key**
 4. Copy the key (it starts with `AIzaSy...`)
 
-> **Free Tier:** 15 requests/minute, 1,500 requests/day - No credit card required!
+### Step 2: Enable Billing (IMPORTANT - To Avoid Daily Limits)
 
-### Step 2: Add the API Key to the Extension
+> **Warning:** Without billing enabled, you're limited to 1,500 requests/day. With billing enabled, you get much higher limits and only pay for what you use (very cheap).
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/billing)
+2. Create a billing account or select existing one
+3. Go to [Google AI Studio Settings](https://aistudio.google.com/app/settings)
+4. Link your API key to a billing-enabled project
+5. Set up a budget alert if desired (recommended)
+
+**Pricing:** Gemini API is very affordable - approximately $0.0001 per request. Even heavy usage rarely exceeds a few dollars per month.
+
+### Step 3: Add the API Key to the Extension
 
 1. Open the `x-reply` folder
 2. Open `service_worker.js` in a text editor (VS Code, Notepad++, etc.)
-3. Find line **287** (around line 287):
+3. Find **line 384**:
    ```javascript
    const API_KEY = ""; // <-- PASTE YOUR API KEY HERE
    ```
@@ -125,7 +139,7 @@ This extension requires a **Google Gemini API Key** to function. The API has a g
    ```
 5. Save the file
 
-### Step 3: Reload the Extension
+### Step 4: Reload the Extension
 
 1. Go to `chrome://extensions/`
 2. Find "X Crypto Agent"
@@ -151,18 +165,18 @@ Click the extension icon in your toolbar to access:
 
 | Tab | Description |
 |-----|-------------|
-| **Settings** | Configure persona, tone, language, and automation options |
+| **Reply** | Configure persona, tone, language, and automation options |
 | **Post** | Generate project posts, viral content, and hashtags |
 | **Schedule** | Schedule tweets for future posting |
 | **Analytics** | View your reply statistics and activity |
-| **Bulk** | Process multiple tweet URLs at once |
-| **Targeting** | Set follower ranges, limits, and user lists |
+| **Bulk** | Process multiple tweet URLs at once with start/stop control |
+| **Target** | Set follower ranges, limits, and user lists |
 
 ### Persona Options
 
 | Persona | Style |
 |---------|-------|
-| **Degen** | Crypto degen slang, high energy, moon talk |
+| **Degen** | Crypto degen style, high energy |
 | **Analyst** | Data-driven, technical analysis, measured |
 | **Roast** | Witty, sarcastic, playful burns |
 | **Maxi** | Bitcoin maximalist perspective |
@@ -183,21 +197,36 @@ Click the extension icon in your toolbar to access:
 
 ## Configuration
 
-### Settings Tab Options
+### Reply Tab Options
 
 | Setting | Description |
 |---------|-------------|
 | **Language** | Auto-detect or select specific language for replies |
 | **Persona** | Choose your AI personality |
 | **Custom Persona** | Write custom instructions for the AI |
-| **User Memory** | Add investment philosophy/beliefs to reflect |
+| **Investment Philosophy** | Add your beliefs to reflect in responses |
+| **Writing Style** | Analyze any Twitter user's style to mimic |
 | **Auto-Reply** | Enable automatic replies to mentions |
 | **Tone** | Select response tone |
 | **Reply Length** | Short, Medium, or Long |
-| **Auto-Generate** | Generate reply on button click |
+| **Auto-Generate** | Generate reply automatically |
 | **Auto-Comment** | Automatically post the reply |
+| **Auto-Like** | Automatically like the original post |
 | **Include @mention** | Include author's @username in reply |
 | **Action Delay** | Delay between automated actions (5-60 seconds) |
+
+### Bulk Tab Options
+
+| Setting | Description |
+|---------|-------------|
+| **Tweet URLs** | Paste multiple tweet URLs (one per line) |
+| **Save URLs** | Save URLs to the queue |
+| **Start Process** | Begin processing all URLs |
+| **Stop** | Stop the bulk process at any time |
+| **Clear List** | Clear all saved URLs and stop processing |
+| **Progress** | Shows X/Y completed status |
+
+> **Note:** Bulk processing has a 2-minute delay between each tweet for human-like behavior.
 
 ### Targeting Tab Options
 
@@ -208,19 +237,17 @@ Click the extension icon in your toolbar to access:
 | **Max Followers** | Only reply to users with at most X followers |
 | **Niche Keywords** | Keywords to look for in tweets |
 | **Blacklist** | Users to never engage with (comma-separated) |
-| **Whitelist** | Users to always engage with (bypasses limits) |
 
 ---
 
 ## Indicators
 
-When browsing Twitter/X, you'll see indicators next to usernames:
+When browsing Twitter/X, you'll see colored dot indicators next to usernames:
 
 | Indicator | Meaning |
 |-----------|---------|
-| ✓ (Green) | You replied to this user within the last 24 hours |
-| ✓ (Red) | You replied to this user more than 24 hours ago |
-| No tick | You haven't replied to this user |
+| 🟢 Green dot | You replied to this user within the last 24 hours |
+| 🔴 Red dot | You haven't replied or reply is older than 24 hours |
 
 ---
 
@@ -229,7 +256,7 @@ When browsing Twitter/X, you'll see indicators next to usernames:
 ```
 x-reply/
 ├── manifest.json          # Extension configuration
-├── service_worker.js      # Backend logic & API integration
+├── service_worker.js      # Backend logic & API integration (API_KEY on line 384)
 ├── content_script.js      # DOM manipulation & UI injection
 ├── popup.html             # Main popup interface
 ├── popup.js               # Popup functionality
@@ -256,7 +283,7 @@ x-reply/
 ## Troubleshooting
 
 ### "API Key not set" Error
-- Make sure you added your API key to `service_worker.js` line 287
+- Make sure you added your API key to `service_worker.js` on **line 384**
 - Reload the extension after adding the key
 
 ### AI Reply Button Not Showing
@@ -267,22 +294,35 @@ x-reply/
 ### Replies Not Generating
 - Check your internet connection
 - Verify your API key is correct
-- Check if you've hit the API rate limit (15 requests/minute)
+- Check if you've hit the API rate limit
+
+### Daily Limit Reached
+- Enable billing on your Google Cloud account (see Step 2 in API Key Setup)
+- Without billing, you're limited to 1,500 requests/day
 
 ### Extension Not Loading
 - Make sure you selected the correct folder (the one containing `manifest.json`)
 - Check for errors in `chrome://extensions/`
 
+### Settings Not Saving
+- Click "Save Settings" button after making changes
+- Reload the extension if settings don't persist
+
 ---
 
 ## API Rate Limits
 
-Google Gemini API free tier limits:
+### Without Billing (Free Tier)
 - **15 requests per minute**
 - **1,500 requests per day**
 - **32,000 tokens per minute**
 
-If you need higher limits, consider upgrading to a paid plan at [Google AI Studio](https://aistudio.google.com/).
+### With Billing Enabled
+- **60 requests per minute**
+- **Unlimited daily requests**
+- Pay only for what you use (~$0.0001 per request)
+
+**Recommendation:** Enable billing to avoid hitting daily limits. Set up a budget alert for peace of mind.
 
 ---
 
