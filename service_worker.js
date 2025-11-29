@@ -284,7 +284,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 //
 // FREE TIER: 15 requests/minute (no credit card required)
 // ============================================================
-const API_KEY = "AIzaSyCIIM7WcDx8DEDhlsXHTAyDZCEpdS1U9zY"; // <-- PASTE YOUR API KEY HERE
+const API_KEY = ""; // <-- PASTE YOUR API KEY HERE
 // ============================================================
 
 const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
@@ -697,21 +697,21 @@ YAPMAMAN GEREKENLER (bunlar seni AI gibi gösterir):
 
 YAPMAN GEREKENLER:
 - ${lengthInstruction.replace("CEVAP UZUNLUGU:", "").trim()}
-- YANIT DİLİ: ${detectedLanguage}. Yanıtı MUTLAKA ${detectedLanguage} dilinde yaz.
-- Gerçek bi insan gibi yaz, typo olabilir, noktalama gevşek olabilir
-- Tweet'in dilinde yanıt ver (${detectedLanguage} tweet = ${detectedLanguage} yanıt)
-- Spesifik ol, tweet'e gerçekten cevap ver
-- Bazen sadece "lol" veya "this" veya "fr" gibi kısa tepkiler de olabilir
-- Doğal ol, sanki arkadaşına yazıyorsun
-- Nokta veya hiç noktalama kullan, ünlem değil
+- YANIT DİLİ: ${detectedLanguage}. Yaniti MUTLAKA ${detectedLanguage} dilinde yaz.
+- Gercek bi insan gibi yaz, noktalama gevsek olabilir
+- Tweet'in dilinde yanit ver (${detectedLanguage} tweet = ${detectedLanguage} yanit)
+- Spesifik ol, tweet'e gercekten cevap ver - tweet'in icerigiyle ALAKALI ol
+- ANLAMSIZ TEK KELIME YANITLAR VERME (sadece "lol", "fr", "this", "same", "real", "based" gibi tek kelime yanitlar YASAK)
+- Her yanit tweet'in konusuyla dogrudan ilgili bir sey soylesin
+- Dogal ol, sanki arkadasina yaziyorsun
+- Nokta veya hic noktalama kullan, unlem degil
 
-ÖRNEK İYİ YANITLAR:
-- "bunu ben de düşünüyodum tam"
-- "wait this is actually huge"
-- "hmm interesting take"
-- "lmao fair point"
-- "ser this is the way"
-- "ngl makes sense"
+ORNEK IYI YANITLAR (konuyla alakali, anlamli):
+- "bunu ben de dusunuyodum tam, ozellikle fee kismi mantikli"
+- "interesting take ama liquidity sorununu cozmuyor gibi"
+- "hmm bu metric'i ilk defa goruyorum aslinda"
+- "fair point, L2lerde bu daha da belirgin oluyor"
+- "bu aciyi hic dusunmemistim valla"
 
 ÖRNEK KÖTÜ YANITLAR (bunları YAPMA):
 - "Kesinlikle katılıyorum! Harika bir bakış açısı! 🔥"
