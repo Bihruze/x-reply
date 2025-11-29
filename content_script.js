@@ -391,6 +391,21 @@ async function handleReplyClick(tweetElement, button, intent) {
 
   console.log('📝 Tweet details for AI Reply:', { tweetText: tweetText?.substring(0, 50), authorName, intent });
 
+  // Auto Like - like the ORIGINAL POST before opening reply box
+  chrome.storage.sync.get({ autoLike: false }, (settings) => {
+    if (settings.autoLike) {
+      // Find like button within THIS tweet element (not the reply box)
+      const likeButton = tweetElement.querySelector('button[data-testid="like"]') ||
+                         tweetElement.querySelector('[data-testid="like"]');
+      if (likeButton && !likeButton.querySelector('[data-testid="unlike"]')) {
+        console.log('Auto Like: Liking the original post...');
+        setTimeout(() => {
+          likeButton.click();
+        }, 500 + Math.random() * 1000);
+      }
+    }
+  });
+
   const nativeReplyButton = DOM.getNativeReplyButton(tweetElement);
   if (nativeReplyButton) {
     nativeReplyButton.click();
@@ -454,7 +469,21 @@ function getIntentIcon(intent) {
 // Function to add a green/red tick next to the author's name
 // Green = Replied within 24h | Red = Not replied yet (needs reply)
 function addAuthorTick(tweetElement) {
-  const userNamesElement = DOM.getUserNames(tweetElement);
+  // Try multiple selectors to find username element
+  let userNamesElement = tweetElement.querySelector('[data-testid="User-Name"]') ||
+                         tweetElement.querySelector('[data-testid="User-Names"]');
+
+  if (!userNamesElement) {
+    // Fallback: find the first link that looks like a username
+    const links = tweetElement.querySelectorAll('a[role="link"]');
+    for (const link of links) {
+      if (link.href && link.href.includes('x.com/') && !link.href.includes('/status/')) {
+        userNamesElement = link.parentElement;
+        break;
+      }
+    }
+  }
+
   if (!userNamesElement) {
     return; // Can't find the name container
   }
@@ -476,29 +505,27 @@ function addAuthorTick(tweetElement) {
       // Replied within 24h - GREEN
       tickColor = '#00BA7C';
       tickSymbol = '●';
-      tickTitle = 'Son 24 saatte yanit verildi';
+      tickTitle = 'Replied within 24h';
     } else {
       // Replied but >24h ago - needs fresh reply - RED
       tickColor = '#F4212E';
       tickSymbol = '●';
-      tickTitle = 'Yanit 24 saatten eski - yeni yanit ver';
+      tickTitle = 'Reply older than 24h';
     }
   } else {
     // Never replied - needs reply - RED
     tickColor = '#F4212E';
     tickSymbol = '●';
-    tickTitle = 'Henuz yanit verilmedi';
+    tickTitle = 'Not replied yet';
   }
 
-  // Check if tick already exists
-  let tick = userNamesElement.querySelector('.author-reply-tick');
+  // Check if tick already exists in this tweet
+  let tick = tweetElement.querySelector('.author-reply-tick');
 
   if (!tick) {
     tick = document.createElement('span');
     tick.className = 'author-reply-tick';
-    tick.style.marginLeft = '4px';
-    tick.style.fontSize = '14px';
-    tick.style.cursor = 'help';
+    tick.style.cssText = 'margin-left: 4px; font-size: 10px; cursor: help; vertical-align: middle;';
     userNamesElement.appendChild(tick);
   }
 
@@ -575,19 +602,15 @@ async function injectReply(text) {
         }));
 
         // Check if Auto Comment is enabled and click Post button
-        chrome.storage.sync.get({ autoComment: false, actionDelay: 10 }, (settings) => {
+        chrome.storage.sync.get({ autoComment: false, actionDelay: 8 }, (settings) => {
           if (settings.autoComment) {
-            // ANTI-SPAM: More human-like delay with higher minimum
-            const baseDelay = Math.max(settings.actionDelay, 15); // Minimum 15 seconds
-            const variance = baseDelay * 0.35; // ±35% variance for more randomness
-            const randomDelay = baseDelay + (Math.random() * variance * 2 - variance);
-
-            // ANTI-SPAM: Occasional "thinking pause" (15% chance of extra 5-15s)
-            const thinkingPause = Math.random() < 0.15 ? (5 + Math.random() * 10) : 0;
-            const finalDelay = randomDelay + thinkingPause;
+            // Use delay setting with variance
+            const baseDelay = Math.max(settings.actionDelay, 5); // Minimum 5 seconds
+            const variance = baseDelay * 0.3; // ±30% variance
+            const finalDelay = baseDelay + (Math.random() * variance * 2 - variance);
             const delayMs = finalDelay * 1000;
 
-            console.log(`Auto Comment enabled. Posting in ${finalDelay.toFixed(1)} seconds (human-like delay)...`);
+            console.log(`Auto Comment enabled. Posting in ${finalDelay.toFixed(1)} seconds...`);
 
             setTimeout(() => {
               // Try multiple selectors for the post button

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const replyLengthSelect = document.getElementById('reply-length-select');
   const autoGenerateToggle = document.getElementById('auto-generate-toggle');
   const autoCommentToggle = document.getElementById('auto-comment-toggle');
+  const autoLikeToggle = document.getElementById('auto-like-toggle');
   const includeMentionToggle = document.getElementById('include-mention-toggle');
   const actionDelayInput = document.getElementById('action-delay-input');
 
@@ -162,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get([
     'selectedLanguage', 'selectedPersona', 'customPersonaPrompt', 'userMemory',
     'autoReplyEnabled', 'tone', 'replyLength', 'autoGenerate',
-    'autoComment', 'actionDelay', 'includeMention'
+    'autoComment', 'autoLike', 'actionDelay', 'includeMention'
   ], (data) => {
     if (languageSelect && data.selectedLanguage) languageSelect.value = data.selectedLanguage;
     if (personaSelect && data.selectedPersona) {
@@ -177,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (replyLengthSelect && data.replyLength) replyLengthSelect.value = data.replyLength;
     if (autoGenerateToggle && data.autoGenerate !== undefined) autoGenerateToggle.checked = data.autoGenerate;
     if (autoCommentToggle && data.autoComment !== undefined) autoCommentToggle.checked = data.autoComment;
+    if (autoLikeToggle && data.autoLike !== undefined) autoLikeToggle.checked = data.autoLike;
     if (includeMentionToggle && data.includeMention !== undefined) includeMentionToggle.checked = data.includeMention;
     if (actionDelayInput) actionDelayInput.value = data.actionDelay || 10;
   });
@@ -193,14 +195,14 @@ document.addEventListener('DOMContentLoaded', () => {
         replyLength: replyLengthSelect?.value,
         autoGenerate: autoGenerateToggle?.checked,
         autoComment: autoCommentToggle?.checked,
+        autoLike: autoLikeToggle?.checked,
         includeMention: includeMentionToggle?.checked,
         actionDelay: parseInt(actionDelayInput?.value) || 10
       };
 
-      // ANTI-SPAM: Enforce minimum delay of 15 seconds to protect account
-      if (settings.actionDelay < 15) {
-        alert('Action delay must be at least 15 seconds to avoid spam detection!');
-        return;
+      // Minimum delay of 5 seconds
+      if (settings.actionDelay < 5) {
+        settings.actionDelay = 5;
       }
 
       chrome.storage.sync.set(settings, () => {
@@ -357,20 +359,38 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Feature: Bulk Auto Comment ---
   const bulkSaveBtn = document.getElementById('bulk-save-btn');
   const bulkStartBtn = document.getElementById('bulk-start-btn');
+  const bulkStopBtn = document.getElementById('bulk-stop-btn');
   const bulkClearBtn = document.getElementById('bulk-clear-btn');
   const bulkUrlsInput = document.getElementById('bulk-urls');
   const bulkList = document.getElementById('bulk-url-list');
+  const bulkProgress = document.getElementById('bulk-progress');
 
   function loadSavedUrls() {
     if (!bulkList) return;
-    chrome.storage.local.get({ bulkUrls: [] }, (data) => {
+    chrome.storage.local.get({ bulkUrls: [], bulkQueue: [], bulkIndex: 0 }, (data) => {
       const urls = data.bulkUrls || [];
+      const queue = data.bulkQueue || [];
+      const index = data.bulkIndex || 0;
+
       if (urls.length === 0) {
         bulkList.textContent = getMsg("bulk_no_urls");
       } else {
         bulkList.innerHTML = urls.map((url, i) =>
           `<div style="padding:4px 0; border-bottom:1px solid var(--border-color); font-size:12px;">${i + 1}. ${url.substring(0, 40)}...</div>`
         ).join('');
+      }
+
+      // Show/hide stop button and progress based on queue state
+      if (queue.length > 0 && index < queue.length) {
+        // Process is running
+        if (bulkStartBtn) bulkStartBtn.style.display = 'none';
+        if (bulkStopBtn) bulkStopBtn.style.display = 'inline-block';
+        if (bulkProgress) bulkProgress.textContent = `Progress: ${index}/${queue.length} completed`;
+      } else {
+        // Process not running
+        if (bulkStartBtn) bulkStartBtn.style.display = 'inline-block';
+        if (bulkStopBtn) bulkStopBtn.style.display = 'none';
+        if (bulkProgress) bulkProgress.textContent = queue.length > 0 ? `Completed: ${index}/${queue.length}` : '';
       }
     });
   }
@@ -417,15 +437,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (confirm(`Start processing ${data.bulkUrls.length} tweets?\n\nMake sure Auto Comment is ON in the Reply tab.`)) {
         chrome.runtime.sendMessage({ action: 'startBulkProcess', urls: data.bulkUrls });
-        alert('Bulk process started in background!\n\nTabs will open, generate AI replies, post them, and close automatically.');
+        bulkStartBtn.style.display = 'none';
+        if (bulkStopBtn) bulkStopBtn.style.display = 'inline-block';
+        if (bulkProgress) bulkProgress.textContent = 'Starting...';
       }
     });
   }
 
+  if (bulkStopBtn) {
+    bulkStopBtn.addEventListener('click', async () => {
+      if (confirm('Stop bulk process?')) {
+        chrome.runtime.sendMessage({ action: 'stopBulkProcess' });
+        bulkStopBtn.style.display = 'none';
+        if (bulkStartBtn) bulkStartBtn.style.display = 'inline-block';
+        if (bulkProgress) bulkProgress.textContent = 'Stopped';
+      }
+    });
+  }
+
+  // Refresh progress periodically when popup is open
+  setInterval(() => {
+    loadSavedUrls();
+  }, 3000);
+
   if (bulkClearBtn) {
     bulkClearBtn.addEventListener('click', () => {
       if (confirm('Clear all URLs?')) {
-        chrome.storage.local.set({ bulkUrls: [] }, loadSavedUrls);
+        chrome.storage.local.set({
+          bulkUrls: [],
+          bulkQueue: [],
+          bulkIndex: 0,
+          bulkResults: [],
+          bulkStopped: true
+        }, () => {
+          // Also clear the alarm
+          chrome.alarms.clear("processBulkQueue");
+          loadSavedUrls();
+        });
       }
     });
   }

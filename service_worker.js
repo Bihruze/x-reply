@@ -14,7 +14,8 @@ let actionDelay = 10; // seconds
 let includeMention = false;
 
 // Load settings from storage when the service worker starts
-chrome.runtime.onInstalled.addListener(() => {
+// This function loads settings - called on startup and on install
+function loadAllSettings() {
   chrome.storage.sync.get([
     'selectedLanguage', 'selectedPersona', 'userMemory', 'autoReplyEnabled',
     'tone', 'autoGenerate', 'autoComment', 'actionDelay', 'includeMention'
@@ -28,7 +29,7 @@ chrome.runtime.onInstalled.addListener(() => {
     if (data.userMemory) {
       userMemory = data.userMemory;
     }
-    if (data.autoReplyEnabled) {
+    if (data.autoReplyEnabled !== undefined) {
       autoReplyEnabled = data.autoReplyEnabled;
     }
     // Load automation settings
@@ -38,8 +39,17 @@ chrome.runtime.onInstalled.addListener(() => {
     if (data.actionDelay !== undefined) actionDelay = data.actionDelay;
     if (data.includeMention !== undefined) includeMention = data.includeMention;
 
-    console.log('Service Worker: Initial settings loaded', { selectedLanguage, selectedPersona, userMemory, autoReplyEnabled, tone, autoGenerate, autoComment, actionDelay, includeMention });
+    console.log('Service Worker: Settings loaded', { selectedLanguage, selectedPersona, userMemory, autoReplyEnabled, tone, autoGenerate, autoComment, actionDelay, includeMention });
   });
+}
+
+// Load settings on service worker startup (every time it wakes up)
+loadAllSettings();
+
+// Also load on install/update
+chrome.runtime.onInstalled.addListener(() => {
+  loadAllSettings();
+  console.log('Service Worker: Extension installed/updated');
 });
 
 // --- Bulk URL Processing System ---
@@ -72,18 +82,20 @@ async function executeBulkAction(tabId, retryCount = 0) {
   const MAX_RETRIES = 5;
 
   try {
-    // Wait for page and content script to fully initialize
-    await new Promise(r => setTimeout(r, 4000));
+    // Wait for page to fully load and render tweets
+    await new Promise(r => setTimeout(r, 3000));
 
-    // First inject content script manually to ensure it's loaded
+    // Inject content script manually to ensure it's loaded
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tabId },
         files: ['content_script.js']
       });
-      await new Promise(r => setTimeout(r, 2000));
+      // Wait for content script to initialize and add buttons
+      await new Promise(r => setTimeout(r, 1500));
     } catch (e) {
-      console.log('Content script already injected or error:', e.message);
+      console.log('Content script injection:', e.message);
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     // Execute the click action
@@ -92,9 +104,11 @@ async function executeBulkAction(tabId, retryCount = 0) {
       function: () => {
         // Find tweets on the page
         const tweets = document.querySelectorAll('article[data-testid="tweet"], article[role="article"]');
+        console.log('Found tweets:', tweets.length);
+
         if (tweets.length === 0) {
           console.log('No tweets found on page');
-          return { success: false, error: 'No tweets found' };
+          return { success: false, error: 'No tweets found', retry: true };
         }
 
         // Get the main tweet (first one on status page)
@@ -105,9 +119,14 @@ async function executeBulkAction(tabId, retryCount = 0) {
           tweet.querySelector('[class*="crypto-agent"] button') ||
           document.querySelector('.crypto-agent-reply-button button');
 
-        // If not found, wait and retry
+        // If not found in tweet, try document-wide
         if (!aiReplyBtn) {
-          console.log('AI Reply button not found yet, waiting...');
+          aiReplyBtn = document.querySelector('.crypto-agent-reply-button button');
+        }
+
+        // If not found, return retry
+        if (!aiReplyBtn) {
+          console.log('AI Reply button not found yet');
           return { success: false, error: 'Button not found', retry: true };
         }
 
@@ -119,10 +138,10 @@ async function executeBulkAction(tabId, retryCount = 0) {
 
     const result = results[0]?.result;
 
-    // If button not found, retry after delay
+    // If button not found or no tweets, retry after delay
     if (result?.retry && retryCount < MAX_RETRIES) {
       console.log(`Retry ${retryCount + 1}/${MAX_RETRIES} for tab ${tabId}`);
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 1500));
       return executeBulkAction(tabId, retryCount + 1);
     }
 
@@ -222,7 +241,8 @@ async function startBulkProcess(urls) {
   await chrome.storage.local.set({
     bulkQueue: urls,
     bulkIndex: 0,
-    bulkResults: []
+    bulkResults: [],
+    bulkStopped: false
   });
 
   // Start immediately (small delay to ensure storage is set)
@@ -231,20 +251,44 @@ async function startBulkProcess(urls) {
   return { success: true, message: 'Bulk process started in background' };
 }
 
+async function stopBulkProcess() {
+  console.log("🛑 stopBulkProcess called");
+
+  // Clear the alarm
+  await chrome.alarms.clear("processBulkQueue");
+
+  // Mark as stopped and clear queue
+  await chrome.storage.local.set({
+    bulkStopped: true,
+    bulkQueue: [],
+    bulkIndex: 0
+  });
+
+  return { success: true, message: 'Bulk process stopped' };
+}
+
 // Process the next item in the bulk queue
 async function processNextBulkItem() {
   const data = await chrome.storage.local.get({
     bulkQueue: [],
     bulkIndex: 0,
     bulkResults: [],
-    actionDelay: 10
+    actionDelay: 10,
+    bulkStopped: false
   });
 
-  const { bulkQueue, bulkIndex, bulkResults, actionDelay } = data;
+  const { bulkQueue, bulkIndex, bulkResults, actionDelay, bulkStopped } = data;
+
+  // Check if stopped
+  if (bulkStopped) {
+    console.log("🛑 Bulk process was stopped");
+    return;
+  }
 
   if (bulkIndex >= bulkQueue.length) {
     console.log("✅ Bulk process finished!");
-    // Optional: Send notification
+    // Clear queue after completion
+    await chrome.storage.local.set({ bulkQueue: [], bulkIndex: 0 });
     return;
   }
 
@@ -278,33 +322,21 @@ async function processNextBulkItem() {
     bulkResults: bulkResults
   });
 
-  // Schedule next item with human-like delay to avoid spam detection
+  // Schedule next item
   if (nextIndex < bulkQueue.length) {
-    // ANTI-SPAM: More aggressive randomization and higher minimum delays
-    // Twitter's bot detection looks for regular patterns
-    const baseDelay = Math.max(actionDelay, 30); // Minimum 30 seconds base delay
-    const variance = baseDelay * 0.4; // ±40% variance for more randomness
-    const randomDelay = baseDelay + (Math.random() * variance * 2 - variance);
+    // 2 minute delay between bulk items for human-like behavior
+    const baseDelay = 120; // 2 minutes = 120 seconds
+    const variance = baseDelay * 0.2; // ±20% variance (96-144 seconds)
+    const finalDelay = baseDelay + (Math.random() * variance * 2 - variance);
 
-    // Add occasional longer "human pause" (10% chance of 60-120s extra delay)
-    const humanPause = Math.random() < 0.1 ? (60 + Math.random() * 60) : 0;
-
-    // Ensure minimum 25 seconds between bulk actions
-    const finalDelay = Math.max(25, randomDelay + humanPause);
-
-    console.log(`⏳ Waiting ${finalDelay.toFixed(1)}s before next item (anti-spam delay)...`);
+    console.log(`⏳ Waiting ${(finalDelay/60).toFixed(1)} minutes before next item...`);
     chrome.alarms.create("processBulkQueue", { when: Date.now() + (finalDelay * 1000) });
   } else {
     console.log("🎉 All items processed!");
   }
 }
 
-// Alarm listener for bulk queue
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "processBulkQueue") {
-    processNextBulkItem();
-  }
-});
+// NOTE: All alarm handlers are consolidated in a single listener at the bottom of this file
 
 
 // Update settings when they change (e.g., from popup.js)
@@ -354,11 +386,11 @@ const API_KEY = ""; // <-- PASTE YOUR API KEY HERE
 
 const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
 
-// Rate limiting - Conservative settings to avoid API bans and spam detection
+// Rate limiting - Optimized for faster responses while staying under limits
 const rateLimiter = {
   queue: [],
   processing: false,
-  minDelay: 4500, // 4.5 seconds between requests (max ~13 req/min, under Gemini's 15/min limit)
+  minDelay: 1000, // 1 second between requests (faster responses)
   lastRequest: 0,
   requestsThisMinute: 0,
   minuteStart: Date.now(),
@@ -597,10 +629,15 @@ async function detectLanguage(text) {
   try {
     const requestBody = {
       "contents": [{
-        "parts": [{ "text": `Detect the language of this text. Respond with ONLY the language name (e.g., "English", "Turkish", "Spanish").\n\nText: "${text}"` }]
+        "parts": [{ "text": `What language is this text written in? Reply with ONLY ONE WORD - the language name in English (Turkish, English, German, French, Spanish, etc). Nothing else.
+
+Text: "${text}"
+
+Language:` }]
       }],
       "generationConfig": {
-        "maxOutputTokens": 10
+        "maxOutputTokens": 5,
+        "temperature": 0
       }
     };
 
@@ -614,9 +651,11 @@ async function detectLanguage(text) {
 
     const data = await response.json();
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      const language = data.candidates[0].content.parts[0].text.trim();
+      let language = data.candidates[0].content.parts[0].text.trim();
+      // Clean up the response - remove any extra text
+      language = language.split('\n')[0].split(' ')[0].replace(/[^a-zA-Z]/g, '');
       console.log("Language detected:", language);
-      return language;
+      return language || "English";
     }
     return "English";
   } catch (error) {
@@ -628,163 +667,140 @@ async function detectLanguage(text) {
 
 
 // Build system prompt for natural, human-like replies
-function buildSystemPrompt(persona, userMemory, intent, customPersonaPrompt, authorStyleAnalysis = "", authorBio = "", myWritingStyle = "", replyLength = "medium", sentiment = "", linkSummary = "", detectedLanguage = "Turkish") {
+function buildSystemPrompt(persona, userMemory, intent, customPersonaPrompt, authorStyleAnalysis = "", authorBio = "", myWritingStyle = "", replyLength = "medium", sentiment = "", linkSummary = "", detectedLanguage = "English") {
+
+  const isEnglish = detectedLanguage === "English";
+  const isTurkish = detectedLanguage === "Turkish";
+
+  // Persona instructions based on language
   let personaInstruction = "";
-
-  // Base persona instructions - more natural
-  switch (persona) {
-    case "Degen":
-      personaInstruction = "sen bi crypto degensin. slang kullan ama abartma. 'lfg', 'ngmi', 'ser', 'anon' gibi. lowercase yaz genelde. hype ol ama samimi ol.";
-      break;
-    case "Analyst":
-      personaInstruction = "crypto analisti gibi düşün. data ve metriklerden bahset ama sıkıcı olma. teknik ol ama anlaşılır ol.";
-      break;
-    case "Maxi":
-      personaInstruction = "bitcoin maximalistsin. her şeyi btc'ye bağla. altcoinlere şüpheci yaklaş. 'hodl', 'stack sats' kullanabilirsin.";
-      break;
-    case "Builder":
-      personaInstruction = "bir builder/dev gibi düşün. teknik detaylardan bahset, çözüm odaklı ol, pragmatik ol.";
-      break;
-    case "Roast":
-      personaInstruction = "espritüel ve ironik ol. hafif roast yap ama kırıcı olma. zekice dalga geç.";
-      break;
-    case "Custom":
-      personaInstruction = customPersonaPrompt || "samimi bir crypto meraklısısın.";
-      break;
-    default:
-      personaInstruction = "samimi bir crypto meraklısısın. yardımsever ve dengeli ol.";
+  if (isEnglish) {
+    switch (persona) {
+      case "Degen":
+        personaInstruction = "you're a crypto degen. use slang but don't overdo it. 'lfg', 'ngmi', 'ser', 'anon' etc. lowercase usually. be hyped but genuine.";
+        break;
+      case "Analyst":
+        personaInstruction = "think like a crypto analyst. mention data and metrics but don't be boring. be technical but understandable.";
+        break;
+      case "Maxi":
+        personaInstruction = "you're a bitcoin maximalist. connect everything to btc. be skeptical of altcoins. use 'hodl', 'stack sats'.";
+        break;
+      case "Builder":
+        personaInstruction = "think like a builder/dev. mention technical details, be solution-oriented, pragmatic.";
+        break;
+      case "Roast":
+        personaInstruction = "be witty and ironic. light roast but not hurtful. clever banter.";
+        break;
+      case "Custom":
+        personaInstruction = customPersonaPrompt || "you're a friendly crypto enthusiast.";
+        break;
+      default:
+        personaInstruction = "you're a friendly crypto enthusiast. helpful and balanced.";
+    }
+  } else {
+    // Turkish responses - but prompt in English for AI to understand
+    switch (persona) {
+      case "Degen":
+        personaInstruction = "you're a crypto degen. use slang but don't overdo it. be hyped but genuine. write in a casual way.";
+        break;
+      case "Analyst":
+        personaInstruction = "think like a crypto analyst. mention data and metrics but don't be boring. be technical but understandable.";
+        break;
+      case "Maxi":
+        personaInstruction = "you're a bitcoin maximalist. connect everything to btc. be skeptical of altcoins.";
+        break;
+      case "Builder":
+        personaInstruction = "think like a builder/dev. mention technical details, be solution-oriented, pragmatic.";
+        break;
+      case "Roast":
+        personaInstruction = "be witty and ironic. light roast but not hurtful. clever banter.";
+        break;
+      case "Custom":
+        personaInstruction = customPersonaPrompt || "you're a friendly crypto enthusiast.";
+        break;
+      default:
+        personaInstruction = "you're a friendly crypto enthusiast. helpful and balanced.";
+    }
   }
 
-  // Intent-based instructions - more conversational
-  let intentInstruction = "";
-  switch (intent) {
-    case "agree":
-      intentInstruction = "katıl ve üstüne ekle. ama 'kesinlikle katılıyorum' gibi formal şeyler yazma.";
-      break;
-    case "disagree":
-      intentInstruction = "nazikçe karşı çık. farklı bi bakış aç sun.";
-      break;
-    case "funny":
-      intentInstruction = "komik veya ironik bi şey yaz. espri yap.";
-      break;
-    case "question":
-      intentInstruction = "ilginç bi soru sor. merak et.";
-      break;
-  }
-
-  // Tone-based instructions
-  let toneInstruction = "";
-  switch (tone) {
-    case "Bullish":
-      toneInstruction = "pozitif ve umutlu ol.";
-      break;
-    case "Bearish":
-      toneInstruction = "temkinli ve şüpheci ol.";
-      break;
-    case "Funny":
-      toneInstruction = "komik ol, espri kat.";
-      break;
-    case "Professional":
-      toneInstruction = "profesyonel ama soğuk değil.";
-      break;
-    case "Casual":
-      toneInstruction = "rahat ve samimi ol.";
-      break;
-    default:
-      toneInstruction = "dengeli ol.";
-      break;
-  }
-
-  // Length-based instructions
+  // Length instructions - always in English for AI
   let lengthInstruction = "";
   switch (replyLength) {
-    case "short":
-      lengthInstruction = "CEVAP UZUNLUGU: Cok kisa yaz, 1-2 cumle max. 50 karakteri gecme.";
-      break;
-    case "long":
-      lengthInstruction = "CEVAP UZUNLUGU: Detayli yaz, 3-5 cumle. 200 karaktere kadar olabilir.";
-      break;
-    default:
-      lengthInstruction = "CEVAP UZUNLUGU: Orta uzunlukta, 2-3 cumle. 100-140 karakter.";
-      break;
+    case "short": lengthInstruction = "Very short, 1-2 sentences max. Under 50 chars."; break;
+    case "long": lengthInstruction = "Detailed, 3-5 sentences. Up to 200 chars."; break;
+    default: lengthInstruction = "Medium length, 2-3 sentences. 100-140 chars."; break;
   }
 
-  // Author context
-  let authorContext = "";
-  if (authorStyleAnalysis) {
-    authorContext = `\n\nBu kişinin tarzı: ${authorStyleAnalysis}\nOnun tarzına uy. Casual yazıyorsa casual yaz. Emoji kullanıyorsa sen de kullanabilirsin.`;
-  }
-  if (authorBio) {
-    authorContext += `\nBio: "${authorBio}"`;
-  }
+  // Build the prompt in the detected language
+  if (isEnglish) {
+    return `You write tweet replies as a real human. You are NOT a bot or AI.
 
-  // User memory context
-  let memoryContext = "";
-  if (userMemory) {
-    memoryContext = `\nSenin görüşlerin: "${userMemory}" - bunu doğal şekilde yansıt.`;
-  }
-
-  // Context from tweet analysis
-  let contextInfo = "";
-  if (sentiment && sentiment !== "Neutral") {
-    contextInfo += `\nTweet Duygusu: ${sentiment} (Buna uygun tonla yanıt ver)`;
-  }
-  if (linkSummary) {
-    contextInfo += `\nTweet'teki Link Özeti: "${linkSummary}" (Yanıtında bu bilgiyi kullanabilirsin)`;
-  }
-
-  // User's own writing style (most important!)
-  let myStyleContext = "";
-  if (myWritingStyle) {
-    myStyleContext = `\n\n🎯 SENİN YAZIM TARZIN (bunu taklit et!):\n"${myWritingStyle}"\n\nBu tarzda yaz! Bu senin gerçek Twitter tarzın.`;
-  }
-
-  return `Sen gerçek bir insan gibi tweet'lere yanıt yazıyorsun. Bir bot veya AI değilsin.
-${myStyleContext}
+CRITICAL: YOUR REPLY MUST BE IN ENGLISH ONLY. DO NOT USE ANY OTHER LANGUAGE.
 
 ${personaInstruction}
-${intentInstruction}
-${toneInstruction}
-${lengthInstruction}
-${authorContext}
-${memoryContext}
-${contextInfo}
 
-YAPMAMAN GEREKENLER (bunlar seni AI gibi gösterir):
-- "Kesinlikle katılıyorum!", "Harika bir nokta!", "Bu çok doğru!" gibi boş onaylar
-- "I think", "I believe", "In my opinion" gibi gereksiz başlangıçlar
-- "Great point!", "Absolutely!", "Totally agree!" gibi sahte coşku
-- Hashtag kullanma
-- EMOJİ KULLANMA (hiç emoji olmasın)
-- ÜNLEM İŞARETİ KULLANMA (! kullanma)
-- Çok formal veya çok kibar olmak
-- Generic/template yanıtlar
+${userMemory ? `Your views: "${userMemory}" - reflect this naturally.` : ''}
+${myWritingStyle ? `Your writing style: "${myWritingStyle}" - mimic this style.` : ''}
 
-YAPMAN GEREKENLER:
-- ${lengthInstruction.replace("CEVAP UZUNLUGU:", "").trim()}
-- YANIT DİLİ: ${detectedLanguage}. Yaniti MUTLAKA ${detectedLanguage} dilinde yaz.
-- Gercek bi insan gibi yaz, noktalama gevsek olabilir
-- Tweet'in dilinde yanit ver (${detectedLanguage} tweet = ${detectedLanguage} yanit)
-- Spesifik ol, tweet'e gercekten cevap ver - tweet'in icerigiyle ALAKALI ol
-- ANLAMSIZ TEK KELIME YANITLAR VERME (sadece "lol", "fr", "this", "same", "real", "based" gibi tek kelime yanitlar YASAK)
-- Her yanit tweet'in konusuyla dogrudan ilgili bir sey soylesin
-- Dogal ol, sanki arkadasina yaziyorsun
-- Nokta veya hic noktalama kullan, unlem degil
+REPLY LENGTH: Write exactly 2 sentences, around 30 words total. Not more, not less.
 
-ORNEK IYI YANITLAR (konuyla alakali, anlamli):
-- "bunu ben de dusunuyodum tam, ozellikle fee kismi mantikli"
-- "interesting take ama liquidity sorununu cozmuyor gibi"
-- "hmm bu metric'i ilk defa goruyorum aslinda"
-- "fair point, L2lerde bu daha da belirgin oluyor"
-- "bu aciyi hic dusunmemistim valla"
+IMPORTANT RULES:
+- NEVER use abbreviations like ngl, tbh, lfg, ngmi, imo, etc. Write full words
+- NEVER use dashes (- or —), quotes (" or '), or colons (:)
+- NEVER use exclamation marks (!)
+- NEVER use emojis or hashtags
+- NEVER use "lol"
+- Dont worry about punctuation, be casual
+- No "Great point!", "Absolutely!", "I agree!" type phrases
+- Be specific to the tweet, not generic
 
-ÖRNEK KÖTÜ YANITLAR (bunları YAPMA):
-- "Kesinlikle katılıyorum! Harika bir bakış açısı! 🔥"
-- "This is a great point! I totally agree! 🚀"
-- "Çok doğru söylüyorsunuz! 👏"
+GOOD EXAMPLES:
+- "been thinking the same thing lately. especially with how the market has been moving"
+- "interesting take on this. didnt consider that angle before"
+- "yeah the gas fees are getting out of hand. hard to justify small transactions anymore"
 
-Şimdi bu tweet'e doğal bi yanıt yaz:
+BAD EXAMPLES (NEVER DO THIS):
+- "lol true"
+- "ngl this is based"
+- "Great point! I totally agree! 🔥"
+- "lfg ser"
+
+Now write a natural 2 sentence reply to this tweet:
 `;
+  } else {
+    return `You write tweet replies as a real human. You are NOT a bot or AI.
+
+CRITICAL: YOUR REPLY MUST BE IN TURKISH ONLY. DO NOT USE ANY OTHER LANGUAGE. Write everything in Turkish.
+
+${personaInstruction}
+
+${userMemory ? `Your views: "${userMemory}" - reflect this naturally.` : ''}
+${myWritingStyle ? `Your writing style: "${myWritingStyle}" - mimic this style.` : ''}
+
+REPLY LENGTH: Write exactly 2 sentences, around 30 words total. Not more, not less.
+
+IMPORTANT RULES:
+- NEVER use abbreviations like ngl, tbh, lfg, ngmi, imo, etc. Write full words
+- NEVER use dashes (- or —), quotes (" or '), or colons (:)
+- NEVER use exclamation marks (!)
+- NEVER use emojis or hashtags
+- Dont worry about punctuation, be casual
+- No generic praise phrases like "Kesinlikle katiliyorum!", "Harika!", "Cok dogru!"
+- Be specific to the tweet, not generic
+
+GOOD TURKISH REPLY EXAMPLES:
+- "ayni seyi dusunuyordum ben de. ozellikle son zamanlarda cok belirgin oldu"
+- "mantikli aslinda bu acidan bakunca. daha once hic dusunmemistim"
+- "evet gas feeler cok artmaya basladi. kucuk islemler icin zor artik"
+
+BAD EXAMPLES (NEVER DO THIS):
+- "Kesinlikle katiliyorum! Harika! 🔥"
+- "ngl cok based"
+- "lfg ser"
+
+Now write a natural 2 sentence reply IN TURKISH to this tweet:
+`;
+  }
 }
 
 // Function to generate the AI reply using Gemini
@@ -814,14 +830,20 @@ async function generateAiReply(tweetText, authorName, authorStatus, linkUrl, int
   // 3. Determine Language (Selected vs Detected)
   const settings = await chrome.storage.sync.get(['selectedLanguage', 'selectedPersona', 'userMemory', 'customPersonaPrompt', 'myWritingStyle', 'replyLength']);
 
-  let targetLanguage = "Turkish"; // Default fallback
+  let targetLanguage = "English"; // Default fallback
+
+  // Always detect the tweet's language first
+  const detectedLang = await detectLanguage(tweetText);
+  console.log(`🕵️ Detected tweet language: ${detectedLang}`);
 
   if (settings.selectedLanguage && settings.selectedLanguage !== "Auto") {
+    // User explicitly selected a language - use that
     targetLanguage = settings.selectedLanguage;
-    console.log(`🗣️ Enforcing selected language: ${targetLanguage}`);
+    console.log(`🗣️ User selected language: ${targetLanguage}`);
   } else {
-    targetLanguage = await detectLanguage(tweetText);
-    console.log(`🕵️ Detected language: ${targetLanguage}`);
+    // Auto mode - reply in the same language as the tweet
+    targetLanguage = detectedLang;
+    console.log(`🗣️ Auto mode - using detected language: ${targetLanguage}`);
   }
 
   // 4. Build the system prompt with all context
@@ -833,12 +855,9 @@ async function generateAiReply(tweetText, authorName, authorStatus, linkUrl, int
 
   const systemPrompt = buildSystemPrompt(persona, userMemory, intent, customPersonaPrompt, authorStyleAnalysis, authorBio, myWritingStyle, replyLength, sentiment, linkSummary, targetLanguage);
 
-  const maxTokensByLength = {
-    short: 80,
-    medium: 140,
-    long: 220
-  };
-  const maxOutputTokens = maxTokensByLength[replyLength] || 140;
+  // Fixed max tokens for 2 sentences, ~30 words
+  const maxOutputTokens = 80;
+  console.log(`maxOutputTokens: ${maxOutputTokens}`);
 
   const contents = [
     {
@@ -1080,6 +1099,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: error.message });
     });
     return true;
+  } else if (request.action === "stopBulkProcess") {
+    console.log("Stopping bulk process");
+    stopBulkProcess().then(result => {
+      sendResponse(result);
+    });
+    return true;
   } else if (request.action === "analyzeMyStyle") {
     console.log("Analyzing style for:", request.username);
     analyzeUserStyle(request.username).then(result => {
@@ -1122,51 +1147,50 @@ function schedulePost(post) {
   }
 }
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name.startsWith('scheduled_post_')) {
-    const scheduledTime = parseInt(alarm.name.replace('scheduled_post_', ''));
-    const data = await chrome.storage.local.get({ scheduledPosts: [] });
-    const post = data.scheduledPosts.find(p => p.scheduledTime === scheduledTime);
+// Scheduled posts handler function (called from consolidated alarm listener)
+async function handleScheduledPost(alarm) {
+  const scheduledTime = parseInt(alarm.name.replace('scheduled_post_', ''));
+  const data = await chrome.storage.local.get({ scheduledPosts: [] });
+  const post = data.scheduledPosts.find(p => p.scheduledTime === scheduledTime);
 
-    if (post) {
-      console.log('Posting scheduled content:', post.text);
-      // Open Twitter compose and post
-      const tab = await chrome.tabs.create({ url: 'https://x.com/compose/tweet', active: true });
-      await new Promise(r => setTimeout(r, 3000));
+  if (post) {
+    console.log('Posting scheduled content:', post.text);
+    // Open Twitter compose and post
+    const tab = await chrome.tabs.create({ url: 'https://x.com/compose/tweet', active: true });
+    await new Promise(r => setTimeout(r, 3000));
 
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        function: (text) => {
-          const editor = document.querySelector('[data-testid="tweetTextarea_0"]') ||
-            document.querySelector('[role="textbox"]');
-          if (editor) {
-            editor.focus();
-            document.execCommand('insertText', false, text);
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: (text) => {
+        const editor = document.querySelector('[data-testid="tweetTextarea_0"]') ||
+          document.querySelector('[role="textbox"]');
+        if (editor) {
+          editor.focus();
+          document.execCommand('insertText', false, text);
 
-            // Wait for button to become enabled and click it
-            setTimeout(() => {
-              const postButton = document.querySelector('button[data-testid="tweetButton"]') ||
-                document.querySelector('button[data-testid="tweetButtonInline"]') ||
-                document.querySelector('[data-testid="toolBar"] button[type="button"]:not([aria-label])');
+          // Wait for button to become enabled and click it
+          setTimeout(() => {
+            const postButton = document.querySelector('button[data-testid="tweetButton"]') ||
+              document.querySelector('button[data-testid="tweetButtonInline"]') ||
+              document.querySelector('[data-testid="toolBar"] button[type="button"]:not([aria-label])');
 
-              if (postButton) {
-                console.log("Clicking post button...");
-                postButton.click();
-              } else {
-                console.error("Post button not found");
-              }
-            }, 1000);
-          }
-        },
-        args: [post.text]
-      });
+            if (postButton) {
+              console.log("Clicking post button...");
+              postButton.click();
+            } else {
+              console.error("Post button not found");
+            }
+          }, 1000);
+        }
+      },
+      args: [post.text]
+    });
 
-      // Remove from list
-      const posts = data.scheduledPosts.filter(p => p.scheduledTime !== scheduledTime);
-      chrome.storage.local.set({ scheduledPosts: posts });
-    }
+    // Remove from list
+    const posts = data.scheduledPosts.filter(p => p.scheduledTime !== scheduledTime);
+    chrome.storage.local.set({ scheduledPosts: posts });
   }
-});
+}
 
 // --- Competitor Analysis ---
 async function analyzeCompetitor(username) {
@@ -1600,9 +1624,16 @@ async function addToMentionQueue(username) {
 // ANTI-SPAM: Process mentions every 30 minutes instead of 10
 chrome.alarms.create("processMentionQueue", { periodInMinutes: 30 });
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "processMentionQueue") {
+// CONSOLIDATED ALARM LISTENER - handles all alarms in one place
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  console.log('Alarm triggered:', alarm.name);
+
+  if (alarm.name === "processBulkQueue") {
+    processNextBulkItem();
+  } else if (alarm.name === "processMentionQueue") {
     processMentionQueue();
+  } else if (alarm.name.startsWith('scheduled_post_')) {
+    handleScheduledPost(alarm);
   }
 });
 
