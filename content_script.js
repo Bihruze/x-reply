@@ -1,3 +1,8 @@
+// Prevent duplicate loading
+if (window.xReplyLoaded) {
+  throw new Error("X Crypto Agent already loaded");
+}
+window.xReplyLoaded = true;
 console.log("X Crypto Agent: Content script loaded (v3).");
 
 let repliedAuthors = new Map(); // Map of username -> timestamp
@@ -549,173 +554,251 @@ function addAuthorTick(tweetElement) {
 }
 
 
-// Function to find the reply textbox and inject the text using clipboard method
+// Function to find the reply textbox and inject the text
 async function injectReply(text) {
   console.log('🚀 injectReply called with text:', text?.substring(0, 50) + '...');
 
-  const maxAttempts = 20;
+  const maxAttempts = 25;
   let attempts = 0;
 
   const tryInject = async () => {
     attempts++;
     console.log(`📝 Injection attempt ${attempts}/${maxAttempts}`);
 
-    const replyTextbox = DOM.getReplyTextbox();
-    if (!replyTextbox) {
+    // Find the DraftJS editor container
+    let editorContainer = document.querySelector('[data-testid="tweetTextarea_0"]') ||
+                          document.querySelector('[data-testid="tweetTextarea_1"]');
+
+    if (!editorContainer) {
       if (attempts < maxAttempts) {
-        setTimeout(tryInject, 300);
+        setTimeout(tryInject, 400);
       } else {
         console.error('❌ Reply textbox not found after max attempts');
       }
       return;
     }
 
-    console.log('✅ Found reply textbox, injecting text...');
+    // Find the contenteditable element
+    let editableEl = editorContainer.querySelector('.DraftEditor-editorContainer [contenteditable="true"]') ||
+                     editorContainer.querySelector('[contenteditable="true"]') ||
+                     editorContainer;
 
-    // Focus the textbox first
-    replyTextbox.focus();
-    await new Promise(r => setTimeout(r, 100));
+    console.log('✅ Found editor:', editableEl.className);
 
-    // Method 1: Use execCommand with selectAll + insertText (most reliable for React)
-    try {
-      // Select all existing content first
-      document.execCommand('selectAll', false, null);
-      await new Promise(r => setTimeout(r, 50));
-
-      // Insert text using execCommand - this triggers React's onChange properly
-      const success = document.execCommand('insertText', false, text);
-      console.log('execCommand insertText result:', success);
-
-      if (success) {
-        console.log('✅ Text injected via execCommand');
-      }
-    } catch (e) {
-      console.log('execCommand failed:', e.message);
-    }
-
-    // Wait a moment for React to process
+    // Focus
+    editableEl.focus();
     await new Promise(r => setTimeout(r, 200));
 
-    // Verify text was inserted by checking textbox content
-    const currentText = replyTextbox.textContent || replyTextbox.innerText || '';
-    console.log('Current textbox content:', currentText?.substring(0, 50));
+    // BEST METHOD: Simulate real typing using DataTransfer
+    console.log('📋 Using DataTransfer paste simulation...');
 
-    if (!currentText || currentText.length < 5) {
-      console.log('⚠️ Text may not have been inserted, trying alternative method...');
+    try {
+      // Create a DataTransfer object with the text
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData('text/plain', text);
 
-      // Method 2: Simulate typing character by character (fallback)
-      replyTextbox.focus();
-      for (let i = 0; i < Math.min(text.length, 10); i++) {
-        const char = text[i];
-        replyTextbox.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
-        document.execCommand('insertText', false, char);
-        replyTextbox.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }));
-        await new Promise(r => setTimeout(r, 10));
+      // Create paste event
+      const pasteEvent = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: dataTransfer
+      });
+
+      // Focus and dispatch
+      editableEl.focus();
+      editableEl.dispatchEvent(pasteEvent);
+
+      await new Promise(r => setTimeout(r, 500));
+
+      // Check if paste worked
+      let currentText = editableEl.textContent || '';
+      console.log('📝 After paste:', currentText?.substring(0, 30));
+
+      if (currentText.length >= 3) {
+        console.log('✅ Paste method worked!');
+        await new Promise(r => setTimeout(r, 300));
+        await forceClickPostButton();
+        return;
       }
-      // Insert the rest
-      if (text.length > 10) {
-        document.execCommand('insertText', false, text.substring(10));
-      }
+    } catch (e) {
+      console.log('Paste error:', e.message);
     }
 
-    // Dispatch events to ensure React state is updated
-    replyTextbox.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-    replyTextbox.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    // FALLBACK: execCommand with input events
+    console.log('📝 Trying execCommand with beforeinput...');
 
-    // Wait for button to become enabled
-    await waitForPostButton();
+    editableEl.focus();
+    await new Promise(r => setTimeout(r, 100));
+
+    // Fire beforeinput first - this is what DraftJS listens to
+    const beforeInputEvent = new InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: text
+    });
+    editableEl.dispatchEvent(beforeInputEvent);
+
+    // Then execCommand
+    document.execCommand('selectAll', false, null);
+    document.execCommand('delete', false, null);
+    document.execCommand('insertText', false, text);
+
+    // Fire input event
+    const inputEvent = new InputEvent('input', {
+      bubbles: true,
+      cancelable: false,
+      inputType: 'insertText',
+      data: text
+    });
+    editableEl.dispatchEvent(inputEvent);
+
+    await new Promise(r => setTimeout(r, 500));
+
+    // Check
+    let currentText = editableEl.textContent || editableEl.innerText || '';
+    console.log('📝 After execCommand:', currentText?.substring(0, 30));
+
+    // Always proceed to try clicking the button
+    console.log('🔘 Proceeding to click post button...');
+    await forceClickPostButton();
   };
 
   tryInject();
 }
 
-// Wait for post button to become enabled and click it
-async function waitForPostButton() {
-  console.log('⏳ Waiting for post button to become enabled...');
+// Force click post button - tries multiple times regardless of disabled state
+async function forceClickPostButton() {
+  console.log('🔘 forceClickPostButton called');
 
-  const maxWaitTime = 10000; // 10 seconds max wait
-  const startTime = Date.now();
+  // First, get autoComment setting once
+  const settings = await new Promise(resolve => {
+    chrome.storage.sync.get({ autoComment: true, actionDelay: 5 }, resolve);
+  });
 
-  const checkButton = async () => {
-    const elapsed = Date.now() - startTime;
-    if (elapsed > maxWaitTime) {
-      console.error('❌ Post button did not become enabled within timeout');
-      return;
+  console.log('📋 Settings:', settings);
+
+  if (!settings.autoComment) {
+    console.log('ℹ️ Auto Comment disabled, not clicking');
+    return false;
+  }
+
+  const maxAttempts = 15;
+  let clickAttempted = false;
+  let spaceAdded = false;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 500)); // Faster checks
+
+    // Check if reply box still exists
+    const replyBox = DOM.getReplyTextbox();
+    if (!replyBox) {
+      console.log('✅ Reply box gone - post was successful!');
+      return true;
     }
 
     const postButton = DOM.getPostButton();
+    console.log(`🔘 Attempt ${i + 1}/${maxAttempts} - Button: ${!!postButton}, disabled: ${postButton?.disabled}`);
 
-    if (postButton) {
-      console.log('Post button found, disabled:', postButton.disabled);
+    // If button is disabled, try adding a space to trigger React state
+    if (postButton && postButton.disabled && !spaceAdded) {
+      console.log('⚠️ Button disabled, adding space to trigger React...');
 
-      if (!postButton.disabled) {
-        console.log('✅ Post button is enabled!');
+      // Find editor and add a space
+      const editor = document.querySelector('[data-testid="tweetTextarea_0"] [contenteditable="true"]') ||
+                     document.querySelector('[data-testid="tweetTextarea_1"] [contenteditable="true"]');
 
-        // Check if Auto Comment is enabled
-        chrome.storage.sync.get({ autoComment: false, actionDelay: 8 }, (settings) => {
-          if (settings.autoComment) {
-            // Use delay setting with variance (minimum 3 seconds for safety)
-            const baseDelay = Math.max(settings.actionDelay, 3);
-            const variance = baseDelay * 0.2; // ±20% variance
-            const finalDelay = baseDelay + (Math.random() * variance * 2 - variance);
-            const delayMs = finalDelay * 1000;
+      if (editor) {
+        editor.focus();
 
-            console.log(`🕐 Auto Comment enabled. Posting in ${finalDelay.toFixed(1)} seconds...`);
+        // Try adding a space using execCommand
+        document.execCommand('insertText', false, ' ');
 
-            setTimeout(() => {
-              clickPostButton();
-            }, delayMs);
-          } else {
-            console.log('ℹ️ Auto Comment is disabled, text injected but not posting');
-          }
-        });
-        return;
+        // Also dispatch events
+        editor.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: ' ' }));
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ' ' }));
+
+        spaceAdded = true;
+        await new Promise(r => setTimeout(r, 500));
+        continue; // Check button again
       }
     }
-
-    // Button not ready yet, check again
-    setTimeout(checkButton, 200);
-  };
-
-  // Start checking after a small delay
-  setTimeout(checkButton, 500);
-}
-
-// Click the post button with retry logic
-async function clickPostButton() {
-  const maxRetries = 5;
-  let retries = 0;
-
-  const tryClick = async () => {
-    retries++;
-    const postButton = DOM.getPostButton();
 
     if (postButton && !postButton.disabled) {
-      console.log(`🖱️ Clicking post button (attempt ${retries})...`);
-      postButton.click();
-
-      // Wait and verify
-      await new Promise(r => setTimeout(r, 1000));
-
-      const replyBoxStillExists = DOM.getReplyTextbox();
-      if (replyBoxStillExists && retries < maxRetries) {
-        console.log('⚠️ Reply box still exists, retrying click...');
-        setTimeout(tryClick, 500);
-      } else if (!replyBoxStillExists) {
-        console.log('✅ Reply posted successfully!');
-      } else {
-        console.error('❌ Failed to post after max retries');
+      // Button is enabled!
+      if (!clickAttempted) {
+        // Short delay before clicking (1 second)
+        console.log(`⏳ Clicking in 1s...`);
+        await new Promise(r => setTimeout(r, 1000));
       }
-    } else if (retries < maxRetries) {
-      console.log('⚠️ Post button not ready, waiting...');
-      setTimeout(tryClick, 500);
-    } else {
-      console.error('❌ Post button never became available');
-    }
-  };
 
-  tryClick();
+      console.log('🖱️ Clicking post button...');
+      clickAttempted = true;
+
+      // Try multiple click methods
+      try {
+        postButton.click();
+      } catch (e) {
+        console.log('Direct click failed');
+      }
+
+      // Also try MouseEvent
+      postButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+
+      console.log('✅ Click sent!');
+
+      // Wait for Twitter to process
+      await new Promise(r => setTimeout(r, 1500));
+
+      // Check if successful
+      const replyBoxAfter = DOM.getReplyTextbox();
+      if (!replyBoxAfter) {
+        console.log('✅ Reply posted successfully!');
+        return true;
+      } else {
+        console.log('⚠️ Reply box still exists, will retry...');
+      }
+    } else if (postButton && postButton.disabled && spaceAdded) {
+      // Space was added but button still disabled - try more aggressive approach
+      console.log('⚠️ Button still disabled after space, trying aggressive approach...');
+
+      const editor = document.querySelector('[data-testid="tweetTextarea_0"] [contenteditable="true"]') ||
+                     document.querySelector('[data-testid="tweetTextarea_1"] [contenteditable="true"]');
+
+      if (editor) {
+        // Get current text
+        const currentText = editor.textContent || '';
+
+        // Clear and re-type everything
+        editor.focus();
+        document.execCommand('selectAll', false, null);
+        await new Promise(r => setTimeout(r, 50));
+
+        // Delete and re-insert
+        document.execCommand('delete', false, null);
+        await new Promise(r => setTimeout(r, 50));
+
+        // Re-insert character by character (first 20 chars)
+        const textToType = currentText.substring(0, Math.min(currentText.length, 20));
+        for (const char of textToType) {
+          document.execCommand('insertText', false, char);
+          editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: char }));
+        }
+
+        // Insert rest at once
+        if (currentText.length > 20) {
+          document.execCommand('insertText', false, currentText.substring(20));
+        }
+
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+  }
+
+  console.error('❌ Could not post after max attempts');
+  return false;
 }
+
 
 // Observe for new tweets being added to the DOM
 const observer = new MutationObserver((mutations) => {

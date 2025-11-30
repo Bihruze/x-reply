@@ -79,33 +79,37 @@ function waitForTabLoad(tabId) {
 
 // Helper: Execute bulk action on a tab
 async function executeBulkAction(tabId, retryCount = 0) {
-  const MAX_RETRIES = 5;
+  const MAX_RETRIES = 3;
+  const ACTION_TIMEOUT = 50000; // 50 second max for entire action
 
-  try {
-    // Wait for page to fully load and render tweets
-    await new Promise(r => setTimeout(r, 3000));
+  // Wrap everything in a timeout
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Action timeout')), ACTION_TIMEOUT);
+  });
 
-    // Inject content script manually to ensure it's loaded
+  const actionPromise = (async () => {
     try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ['content_script.js']
-      });
-      // Wait for content script to initialize and add buttons
-      await new Promise(r => setTimeout(r, 2000));
-    } catch (e) {
-      console.log('Content script injection:', e.message);
-      await new Promise(r => setTimeout(r, 1000));
-    }
-
-    // IMPORTANT: Check if autoComment is enabled BEFORE clicking
-    const settings = await chrome.storage.sync.get({ actionDelay: 8, autoComment: false, autoLike: false });
-
-    if (!settings.autoComment) {
-      console.log('⚠️ Auto Comment is disabled. Enabling it automatically for bulk process...');
-      // Auto-enable for bulk process
+      // IMPORTANT: Enable autoComment FIRST
+      console.log('🔧 Ensuring Auto Comment is enabled...');
       await chrome.storage.sync.set({ autoComment: true });
-    }
+
+      // Wait for page to load
+      await new Promise(r => setTimeout(r, 3000));
+
+      // Inject content script
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ['content_script.js']
+        });
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (e) {
+        console.log('Content script injection:', e.message);
+      }
+
+    // Get settings for timing calculations
+    const settings = await chrome.storage.sync.get({ actionDelay: 8, autoComment: true, autoLike: false });
+    console.log('📋 Current settings:', settings);
 
     // Execute the click action
     const results = await chrome.scripting.executeScript({
@@ -156,109 +160,139 @@ async function executeBulkAction(tabId, retryCount = 0) {
 
     // Wait for reply to be generated and posted
     if (result?.success) {
-      // Calculate wait time with more generous timing:
-      // - Like action: ~1 second
-      // - Reply box opening: ~1 second
-      // - AI generation: ~8-15 seconds (API can be slow)
-      // - Text injection + React processing: ~2 seconds
-      // - Button enable wait: ~2 seconds
-      // - actionDelay before posting: settings.actionDelay seconds
-      // - Post action + verification: ~3 seconds
-      const aiGenerationTime = 15000; // 15 seconds for AI (more generous)
-      const injectionTime = 5000; // 5 seconds for injection and React
-      const actionDelayMs = Math.max(settings.actionDelay, 5) * 1000;
-      const postVerifyTime = 5000; // 5 seconds for post and verify
-      const totalWaitTime = aiGenerationTime + injectionTime + actionDelayMs + postVerifyTime;
-
-      console.log(`⏳ Waiting ${totalWaitTime / 1000}s for full reply cycle...`);
-
-      // Wait for reply to be generated, injected, and posted
-      await new Promise(r => setTimeout(r, totalWaitTime));
-
-      // Verify that reply was posted by checking if reply box is gone
+      // Wait max 45 seconds, check every 2 seconds (faster)
+      const maxWaitTime = 45000;
+      const checkInterval = 2000;
+      let elapsed = 0;
       let postSuccess = false;
-      try {
-        const verifyResults = await chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          function: () => {
-            const replyBox = document.querySelector('div[data-testid="tweetTextarea_0"]') ||
-                           document.querySelector('div[data-testid="tweetTextarea_1"]');
-            const postBtn = document.querySelector('button[data-testid="tweetButton"]') ||
-                           document.querySelector('button[data-testid="tweetButtonInline"]');
-            return {
-              replyBoxExists: !!replyBox,
-              postButtonDisabled: postBtn ? postBtn.disabled : true
-            };
-          }
-        });
 
-        const verifyResult = verifyResults[0]?.result;
-        console.log('Verification result:', verifyResult);
+      console.log(`⏳ Waiting up to ${maxWaitTime / 1000}s for reply cycle...`);
 
-        if (verifyResult?.replyBoxExists) {
-          console.log('⚠️ Reply box still exists, attempting manual post...');
+      while (elapsed < maxWaitTime) {
+        await new Promise(r => setTimeout(r, checkInterval));
+        elapsed += checkInterval;
 
-          // Wait a bit more and try to click post
-          for (let attempt = 0; attempt < 3; attempt++) {
-            await new Promise(r => setTimeout(r, 2000));
+        try {
+          const checkResult = await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            function: () => {
+              // Check for any toast/alert (duplicate, error, etc.)
+              const toast = document.querySelector('[data-testid="toast"]') ||
+                           document.querySelector('[role="alert"]') ||
+                           document.querySelector('[data-testid="confirmationSheetDialog"]');
+              const toastText = toast?.textContent?.toLowerCase() || '';
 
-            const clickResult = await chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              function: () => {
-                const postBtn = document.querySelector('button[data-testid="tweetButton"]') ||
-                               document.querySelector('button[data-testid="tweetButtonInline"]');
-                if (postBtn && !postBtn.disabled) {
-                  console.log('Clicking post button manually...');
-                  postBtn.click();
-                  return { clicked: true };
-                }
-                return { clicked: false, disabled: postBtn?.disabled };
-              }
-            });
+              // Check if it's a duplicate/already sent warning
+              const isDuplicate = toastText.includes('already') ||
+                                  toastText.includes('duplicate') ||
+                                  toastText.includes('you already') ||
+                                  toastText.includes('daha önce');
 
-            if (clickResult[0]?.result?.clicked) {
-              console.log('✅ Manual post click successful');
-              postSuccess = true;
-              await new Promise(r => setTimeout(r, 3000));
-              break;
+              // Check reply box
+              const replyBox = document.querySelector('div[data-testid="tweetTextarea_0"]') ||
+                               document.querySelector('div[data-testid="tweetTextarea_1"]');
+
+              // Check if post button exists and its state
+              const postBtn = document.querySelector('button[data-testid="tweetButton"]') ||
+                              document.querySelector('button[data-testid="tweetButtonInline"]');
+
+              return {
+                replyBoxExists: !!replyBox,
+                isDuplicate: isDuplicate,
+                toastText: toastText,
+                hasToast: !!toast,
+                postBtnDisabled: postBtn?.disabled
+              };
             }
+          });
+
+          const res = checkResult[0]?.result;
+          console.log(`⏱️ [${elapsed/1000}s]:`, res);
+
+          // Duplicate warning - close immediately
+          if (res?.isDuplicate || (res?.hasToast && res?.toastText)) {
+            console.log('⚠️ Toast/warning detected, closing tab');
+            postSuccess = false;
+            break;
           }
-        } else {
-          console.log('✅ Reply box is gone, post likely successful');
+
+          // Reply box gone = success
+          if (!res?.replyBoxExists) {
+            console.log('✅ Reply box gone - post successful!');
+            postSuccess = true;
+            break;
+          }
+
+        } catch (e) {
+          console.log('Check error (tab may have navigated):', e.message);
           postSuccess = true;
+          break;
         }
-      } catch (e) {
-        console.log('Verification error (tab may be navigating):', e.message);
-        // Assume success if tab is navigating (Twitter redirects after posting)
-        postSuccess = true;
       }
 
-      // Close the tab after processing
+      // Timeout reached - force close
+      if (elapsed >= maxWaitTime) {
+        console.log('⏰ Timeout reached, forcing close');
+      }
+
+      // ALWAYS close tab
+      console.log('🔄 Closing tab...');
       try {
         await chrome.tabs.remove(tabId);
-        console.log('Tab closed successfully');
-      } catch {
-        console.log('Tab already closed');
+        console.log('✅ Tab closed');
+      } catch (e) {
+        console.log('Tab close error:', e.message);
       }
 
       return postSuccess;
     }
 
-    return result?.success || false;
+    // If AI Reply button click failed, still close the tab
+    console.log('⚠️ AI Reply button not found, closing tab...');
+    try {
+      await chrome.tabs.remove(tabId);
+    } catch (e) {
+      console.log('Tab close error:', e.message);
+    }
+
+    return false;
   } catch (error) {
     console.error('Error executing bulk action:', error);
+    // Try to close tab on error
+    try {
+      await chrome.tabs.remove(tabId);
+    } catch (e) {
+      // Ignore
+    }
+    return false;
+  }
+  })();
+
+  // Race between action and timeout
+  try {
+    return await Promise.race([actionPromise, timeoutPromise]);
+  } catch (e) {
+    console.log('⏰ Action timed out or errored:', e.message);
+    // Force close tab
+    try {
+      await chrome.tabs.remove(tabId);
+    } catch (err) {}
     return false;
   }
 }
 
 async function startBulkProcess(urls) {
-  console.log("🚀 startBulkProcess called");
+  console.log("🚀 startBulkProcess called with", urls?.length, "URLs");
 
   if (!urls || urls.length === 0) {
     return { success: false, error: 'No URLs provided' };
   }
 
-  console.log(`📋 Queuing ${urls.length} URLs for bulk processing`);
+  console.log(`📋 URLs to process:`, urls);
+
+  // IMPORTANT: Enable autoComment BEFORE starting bulk process
+  await chrome.storage.sync.set({ autoComment: true });
+  console.log('✅ Auto Comment enabled for bulk process');
 
   // Initialize queue
   await chrome.storage.local.set({
@@ -268,10 +302,13 @@ async function startBulkProcess(urls) {
     bulkStopped: false
   });
 
-  // Start immediately (small delay to ensure storage is set)
-  chrome.alarms.create("processBulkQueue", { when: Date.now() + 500 });
+  console.log('✅ Queue initialized, starting first item immediately...');
 
-  return { success: true, message: 'Bulk process started in background' };
+  // Start processing immediately using alarm (more reliable)
+  await chrome.alarms.clear("processBulkQueue");
+  chrome.alarms.create("processBulkQueue", { when: Date.now() + 1000 });
+
+  return { success: true, message: 'Bulk process started' };
 }
 
 async function stopBulkProcess() {
@@ -292,6 +329,8 @@ async function stopBulkProcess() {
 
 // Process the next item in the bulk queue
 async function processNextBulkItem() {
+  console.log('🔄 processNextBulkItem called');
+
   const data = await chrome.storage.local.get({
     bulkQueue: [],
     bulkIndex: 0,
@@ -300,7 +339,13 @@ async function processNextBulkItem() {
     bulkStopped: false
   });
 
-  const { bulkQueue, bulkIndex, bulkResults, actionDelay, bulkStopped } = data;
+  const { bulkQueue, bulkIndex, bulkResults, bulkStopped } = data;
+
+  console.log('📊 Queue status:', {
+    total: bulkQueue.length,
+    currentIndex: bulkIndex,
+    stopped: bulkStopped
+  });
 
   // Check if stopped
   if (bulkStopped) {
@@ -308,54 +353,90 @@ async function processNextBulkItem() {
     return;
   }
 
+  if (!bulkQueue || bulkQueue.length === 0) {
+    console.log("⚠️ No URLs in queue");
+    return;
+  }
+
   if (bulkIndex >= bulkQueue.length) {
-    console.log("✅ Bulk process finished!");
-    // Clear queue after completion
+    console.log("✅ Bulk process finished! All URLs processed.");
     await chrome.storage.local.set({ bulkQueue: [], bulkIndex: 0 });
     return;
   }
 
   const url = bulkQueue[bulkIndex];
-  console.log(`[${bulkIndex + 1}/${bulkQueue.length}] Processing: ${url}`);
+  console.log(`\n🌐 [${bulkIndex + 1}/${bulkQueue.length}] Opening: ${url}`);
 
   let success = false;
   let error = null;
 
+  const startTime = Date.now();
+
   try {
+    // Open the URL in a new tab (background)
+    console.log('📂 Creating new tab in background...');
     const tab = await chrome.tabs.create({ url: url, active: false });
+    console.log('✅ Tab created with ID:', tab.id);
+
+    // Briefly activate the tab to ensure scripts run, then switch back
+    const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await chrome.tabs.update(tab.id, { active: true });
+    await new Promise(r => setTimeout(r, 500));
+    if (currentTab?.id) {
+      await chrome.tabs.update(currentTab.id, { active: true });
+    }
+
+    // Wait for tab to load
+    console.log('⏳ Waiting for page to load...');
     const loaded = await waitForTabLoad(tab.id);
+    console.log('📄 Page loaded:', loaded);
 
     if (loaded) {
+      console.log('🤖 Executing bulk action...');
       success = await executeBulkAction(tab.id);
+      console.log('📝 Bulk action result:', success);
     } else {
       error = "Tab load timeout";
+      console.error('❌ Tab load timeout');
+      // Still try to close the tab
+      try { await chrome.tabs.remove(tab.id); } catch(e) {}
     }
   } catch (e) {
-    console.error(`Error processing ${url}:`, e);
+    console.error(`❌ Error processing ${url}:`, e);
     error = e.message;
   }
+
+  const elapsedTime = Date.now() - startTime;
+  console.log(`⏱️ This URL took ${Math.round(elapsedTime/1000)}s`);
 
   // Save result
   bulkResults.push({ url, success, error });
 
-  // Update index
+  // Update index for next URL
   const nextIndex = bulkIndex + 1;
   await chrome.storage.local.set({
     bulkIndex: nextIndex,
     bulkResults: bulkResults
   });
 
-  // Schedule next item
-  if (nextIndex < bulkQueue.length) {
-    // 1.5 minute delay between bulk items for human-like behavior
-    const baseDelay = 90; // 1.5 minutes = 90 seconds
-    const variance = baseDelay * 0.2; // ±20% variance (72-108 seconds)
-    const finalDelay = baseDelay + (Math.random() * variance * 2 - variance);
+  console.log(`📈 Progress: ${nextIndex}/${bulkQueue.length} completed`);
 
-    console.log(`⏳ Waiting ${(finalDelay/60).toFixed(1)} minutes before next item...`);
-    chrome.alarms.create("processBulkQueue", { when: Date.now() + (finalDelay * 1000) });
+  // Process next item after delay
+  if (nextIndex < bulkQueue.length) {
+    // Calculate remaining time to reach 1.5 minutes (90 seconds) total
+    const targetTotalTime = 90000; // 1.5 minutes in ms
+    const remainingTime = Math.max(targetTotalTime - elapsedTime, 10000); // At least 10 seconds
+
+    console.log(`⏳ Waiting ${Math.round(remainingTime/1000)}s to reach 1.5 min total...`);
+
+    // Use chrome.alarms for reliable background execution
+    await chrome.alarms.clear("processBulkQueue");
+    chrome.alarms.create("processBulkQueue", { when: Date.now() + remainingTime });
+    console.log('⏰ Alarm set for next URL');
   } else {
     console.log("🎉 All items processed!");
+    // Clear queue
+    await chrome.storage.local.set({ bulkQueue: [], bulkIndex: 0, bulkStopped: false });
   }
 }
 
@@ -767,6 +848,12 @@ ${myWritingStyle ? `Your writing style: "${myWritingStyle}" - mimic this style.`
 
 REPLY LENGTH: Write exactly 2 sentences, around 30 words total. Not more, not less.
 
+UNIQUENESS IS CRITICAL:
+- Each reply MUST be completely unique and different from any previous reply
+- Use different words, sentence structures, and perspectives every time
+- NEVER start with the same word twice
+- Random seed for variation: ${Date.now()}-${Math.random().toString(36).substring(7)}
+
 IMPORTANT RULES:
 - NEVER use abbreviations like ngl, tbh, lfg, ngmi, imo, etc. Write full words
 - NEVER use dashes (- or —), quotes (" or '), or colons (:)
@@ -801,6 +888,12 @@ ${userMemory ? `Your views: "${userMemory}" - reflect this naturally.` : ''}
 ${myWritingStyle ? `Your writing style: "${myWritingStyle}" - mimic this style.` : ''}
 
 REPLY LENGTH: Write exactly 2 sentences, around 30 words total. Not more, not less.
+
+UNIQUENESS IS CRITICAL:
+- Each reply MUST be completely unique and different from any previous reply
+- Use different words, sentence structures, and perspectives every time
+- NEVER start with the same word twice
+- Random seed for variation: ${Date.now()}-${Math.random().toString(36).substring(7)}
 
 IMPORTANT RULES:
 - NEVER use abbreviations like ngl, tbh, lfg, ngmi, imo, etc. Write full words
@@ -1649,14 +1742,15 @@ chrome.alarms.create("processMentionQueue", { periodInMinutes: 30 });
 
 // CONSOLIDATED ALARM LISTENER - handles all alarms in one place
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  console.log('Alarm triggered:', alarm.name);
+  console.log('🔔 Alarm triggered:', alarm.name);
 
   if (alarm.name === "processBulkQueue") {
-    processNextBulkItem();
+    console.log('📋 Processing bulk queue...');
+    await processNextBulkItem();
   } else if (alarm.name === "processMentionQueue") {
-    processMentionQueue();
+    await processMentionQueue();
   } else if (alarm.name.startsWith('scheduled_post_')) {
-    handleScheduledPost(alarm);
+    await handleScheduledPost(alarm);
   }
 });
 
