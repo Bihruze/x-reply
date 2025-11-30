@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X Crypto Agent</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-top">
+      <div class="header-title-section">
+        <div class="header-icon">X</div>
+        <div class="header-text">
+          <h2 id="popup_title">X Crypto Agent</h2>
+          <p id="popup_subtitle">AI-Powered Assistant</p>
+        </div>
+      </div>
+      <div class="language-selector">
+        <select id="ui-language-select">
+          <option value="en">🇺🇸 EN</option>
+          <option value="tr">🇹🇷 TR</option>
+          <option value="de">🇩🇪 DE</option>
+          <option value="fr">🇫🇷 FR</option>
+          <option value="es">🇪🇸 ES</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="reply-tab" id="tab_reply_mode">Reply</button>
+    <button class="tab-btn" data-tab="create-tab" id="tab_create_post">Post</button>
+    <button class="tab-btn" data-tab="schedule-tab" id="tab_schedule">Schedule</button>
+    <button class="tab-btn" data-tab="analytics-tab" id="tab_analytics">Analytics</button>
+    <button class="tab-btn" data-tab="bulk-tab" id="tab_bulk_auto">Bulk</button>
+    <button class="tab-btn" data-tab="targeting-tab" id="tab_targeting">Target</button>
+  </nav>
+
+  <!-- Content Area -->
+  <main class="content">
+
+    <!-- REPLY TAB -->
+    <div id="reply-tab" class="tab-content active">
+      <div class="settings-section">
+        <div class="features-title" id="settings_title">Settings</div>
+
+        <div class="form-group">
+          <label for="language-select" id="popup_select_language">Reply Language</label>
+          <select id="language-select">
+            <option value="Auto" selected>Auto (Detect)</option>
+            <option value="Turkish">Turkce</option>
+            <option value="English">English</option>
+            <option value="German">Deutsch</option>
+            <option value="French">Francais</option>
+            <option value="Spanish">Espanol</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="persona-select" id="popup_select_persona">Persona</label>
+          <select id="persona-select">
+            <option value="Neutral" selected>Neutral</option>
+            <option value="Degen">Degen</option>
+            <option value="Analyst">Analyst</option>
+            <option value="Maxi">Maxi</option>
+            <option value="Builder">Builder</option>
+            <option value="Roast">Roast</option>
+            <option value="Custom">Custom</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="custom-persona-group" style="display: none;">
+          <label for="custom-persona-input" id="popup_custom_persona_label">Custom Persona Prompt</label>
+          <textarea id="custom-persona-input" rows="3"
+            placeholder="e.g., You are a pirate who loves Bitcoin..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="memory-input" id="popup_memory_label">Investment Philosophy</label>
+          <textarea id="memory-input" rows="3" placeholder="e.g., 'I am a Bitcoin maxi', 'I don't like ETH'"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label id="style_detected">Detected Writing Style:</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="twitter-username-input" placeholder="@username" style="flex: 1;">
+            <button id="analyze-style-btn" class="btn btn-secondary" style="width: auto; padding: 8px 16px;">Analyze</button>
+          </div>
+          <p id="my-writing-style-display"
+            style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; font-style: italic;"></p>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label for="auto-reply-toggle" id="popup_auto_reply_label" style="margin:0">Auto-Reply to Mentions</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="auto-reply-toggle">
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section" style="margin-top: 20px;">
+        <div class="features-title" id="automation_title">AUTOMATION</div>
+
+        <div class="form-group">
+          <label for="tone-select" id="tone_label">Tone</label>
+          <select id="tone-select">
+            <option value="Neutral" selected>Neutral</option>
+            <option value="Bullish">Bullish</option>
+            <option value="Bearish">Bearish</option>
+            <option value="Funny">Funny</option>
+            <option value="Professional">Professional</option>
+            <option value="Casual">Casual</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="reply-length-select" id="reply_length_label">Reply Length</label>
+          <select id="reply-length-select">
+            <option value="short">Short</option>
+            <option value="medium" selected>Medium</option>
+            <option value="long">Long</option>
+          </select>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label for="auto-generate-toggle" id="auto_generate_label" style="margin:0">Auto Generate</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="auto-generate-toggle">
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label for="auto-comment-toggle" id="auto_comment_label" style="margin:0">Auto Comment</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="auto-comment-toggle">
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label for="auto-like-toggle" id="auto_like_label" style="margin:0">Auto Like</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="auto-like-toggle">
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label for="include-mention-toggle" id="include_mention_label" style="margin:0">Include Mention</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="include-mention-toggle">
+            <span class="toggle-slider"></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="action-delay-input" id="action_delay_label">Action Delay (seconds)</label>
+          <input type="number" id="action-delay-input" min="5" value="8">
+        </div>
+      </div>
+    </div>
+
+    <!-- CREATE POST TAB -->
+    <div id="create-tab" class="tab-content" style="display: none;">
+      <div class="settings-section">
+        <div class="features-title" id="create_title">PROJECT POST GENERATOR</div>
+
+        <div class="form-group">
+          <label for="project-name" id="create_name">Project Name</label>
+          <input type="text" id="project-name" placeholder="e.g. Bitcoin, MyProject">
+        </div>
+
+        <div class="form-group">
+          <label for="project-info" id="create_info">Project Details</label>
+          <textarea id="project-info" rows="3" placeholder="Latest news, updates, or key features..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="post-style" id="create_style">Post Style</label>
+          <select id="post-style">
+            <option value="Hype">Hype / Moon</option>
+            <option value="Informative">Informative / News</option>
+            <option value="Thread">Thread Starter</option>
+            <option value="FUD_Buster">FUD Buster</option>
+          </select>
+        </div>
+
+        <button id="generate-post-btn" class="btn btn-primary">
+          ✨ Generate Post
+        </button>
+      </div>
+
+      <div class="settings-section" style="margin-top: 20px;">
+        <div class="features-title" id="create_generated">GENERATED POSTS</div>
+        <div id="generated-posts-container"></div>
+      </div>
+
+      <div class="settings-section" style="margin-top: 20px;">
+        <div class="features-title" id="viral_post_generator">Viral Post Generator</div>
+        <div class="form-group">
+          <label>Topic</label>
+          <input type="text" id="viral-topic" placeholder="e.g. AI Agents">
+        </div>
+        <button id="generate-viral-btn" class="btn btn-secondary">🚀 Generate Viral Hooks</button>
+        <div id="viral-posts-container" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE TAB -->
+    <div id="schedule-tab" class="tab-content" style="display: none;">
+      <div class="settings-section">
+        <div class="features-title" id="schedule_title">SCHEDULED POSTS</div>
+        <div class="form-group">
+          <label for="schedule-text" id="schedule_content">Post Content</label>
+          <textarea id="schedule-text" rows="3" placeholder="What's happening?"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="schedule-time" id="schedule_datetime">Time</label>
+          <input type="datetime-local" id="schedule-time">
+        </div>
+        <button id="schedule-btn" class="btn btn-primary">📅 Schedule</button>
+      </div>
+
+      <div class="settings-section" style="margin-top: 20px;">
+        <div class="features-title" id="schedule_pending">PENDING POSTS</div>
+        <div id="scheduled-posts-list" style="margin-top: 12px;"></div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS TAB -->
+    <div id="analytics-tab" class="tab-content" style="display: none;">
+      <div class="stats-section">
+        <div class="features-title" id="stats_title">Statistics</div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value" id="stat-replies">0</div>
+            <div class="stat-label" id="stat_replies_label">Total Replies</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="stat-authors">0</div>
+            <div class="stat-label" id="stat_authors_label">Unique Users</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section" style="margin-top: 20px;">
+        <div class="features-title" id="analytics_competitor">COMPETITOR ANALYSIS</div>
+        <div class="form-group">
+          <label>Twitter Username</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="competitor-username" placeholder="@elonmusk">
+            <button id="analyze-competitor-btn" class="btn btn-secondary" style="width: auto;">Analyze</button>
+          </div>
+        </div>
+        <div id="competitor-analysis-result"></div>
+      </div>
+
+      <div class="settings-section" style="margin-top: 20px;">
+        <div class="features-title" id="hashtag_title">HASHTAG SUGGESTER</div>
+        <div class="form-group">
+          <label>Topic</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="hashtag-topic" placeholder="e.g. DeFi">
+            <button id="suggest-hashtags-btn" class="btn btn-secondary" style="width: auto;">Suggest</button>
+          </div>
+        </div>
+        <div id="hashtag-results"></div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <a href="dashboard.html" target="_blank" class="btn btn-secondary" style="text-decoration: none;">
+          📊 Open Full Dashboard
+        </a>
+      </div>
+    </div>
+
+    <!-- BULK TAB -->
+    <div id="bulk-tab" class="tab-content" style="display: none;">
+      <div class="settings-section">
+        <div class="features-title" id="bulk_auto_title">BULK AUTO COMMENT</div>
+        <div class="form-group">
+          <label for="bulk-urls" id="bulk_urls_label">Paste Tweet URLs (one per line)</label>
+          <textarea id="bulk-urls" rows="6" placeholder="https://x.com/user/status/123..."></textarea>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="bulk-save-btn" class="btn btn-primary">Save URLs</button>
+          <button id="bulk-start-btn" class="btn btn-secondary">Start Process</button>
+          <button id="bulk-stop-btn" class="btn btn-danger" style="display: none;">Stop</button>
+        </div>
+        <button id="bulk-clear-btn" class="btn btn-danger" style="margin-top: 10px;">Clear List</button>
+      </div>
+
+      <div class="settings-section" style="margin-top: 20px;">
+        <div class="features-title" id="bulk_saved_urls">SAVED URLS</div>
+        <div id="bulk-url-list"></div>
+        <div id="bulk-progress" style="margin-top: 10px; font-size: 12px; color: var(--text-secondary);"></div>
+      </div>
+    </div>
+
+    <!-- TARGETING TAB -->
+    <div id="targeting-tab" class="tab-content" style="display: none;">
+      <div class="settings-section">
+        <div class="features-title" id="targeting_title">SMART TARGETING</div>
+
+        <div class="form-group">
+          <label for="daily-limit" id="targeting_daily_limit">Daily Reply Limit</label>
+          <input type="number" id="daily-limit" value="50">
+        </div>
+
+        <div class="form-group">
+          <label for="min-followers" id="targeting_min_follower">Min Followers</label>
+          <input type="number" id="min-followers" value="100">
+        </div>
+
+        <div class="form-group">
+          <label for="max-followers" id="targeting_max_follower">Max Followers (0 = no limit)</label>
+          <input type="number" id="max-followers" value="0">
+        </div>
+
+        <div class="form-group">
+          <label for="niche-keywords" id="targeting_niche">Niche Keywords (comma separated)</label>
+          <textarea id="niche-keywords" rows="2" placeholder="crypto, defi, nft..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="blacklist-users" id="targeting_blacklist">Blacklist Users</label>
+          <textarea id="blacklist-users" rows="2" placeholder="@spam_bot, @hater..."></textarea>
+        </div>
+
+        <button id="save-targeting-btn" class="btn btn-primary">Save Targeting</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <button id="save-settings" class="btn btn-primary">
+      Save Settings
+    </button>
+
+    <button id="clear-history" class="btn btn-danger">
+      Clear History
+    </button>
+
+    <div class="status-indicator">
+      <div class="status-dot"></div>
+      <span id="status_active">Extension Active</span>
+    </div>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,188 @@
+{
+  "extName": {
+    "message": "X Reply"
+  },
+  "extDescription": {
+    "message": "An AI agent for X (Twitter) specialized in Crypto and Web3 interactions."
+  },
+  "popup_title": {
+    "message": "X Crypto Agent"
+  },
+  "popup_subtitle": {
+    "message": "AI-Powered Twitter Assistant"
+  },
+  "popup_select_language": {
+    "message": "Reply Language:"
+  },
+  "popup_select_persona": {
+    "message": "Select Persona:"
+  },
+  "popup_memory_label": {
+    "message": "Your Investment Philosophy:"
+  },
+  "popup_memory_placeholder": {
+    "message": "e.g., 'I am a Bitcoin maxi', 'I don't like ETH'"
+  },
+  "popup_auto_reply_label": {
+    "message": "Auto-Reply to Mentions"
+  },
+  "popup_save_button": {
+    "message": "Save Settings"
+  },
+  "popup_saved": {
+    "message": "Saved!"
+  },
+  "popup_save_success_alert": {
+    "message": "Settings saved successfully!"
+  },
+  "popup_clear_history": {
+    "message": "Clear History"
+  },
+  "popup_clear_confirm": {
+    "message": "Are you sure you want to clear all reply history?"
+  },
+  "popup_cleared": {
+    "message": "Cleared!"
+  },
+  "features_title": {
+    "message": "Features"
+  },
+  "feature_ai_reply": {
+    "message": "AI Reply"
+  },
+  "feature_personas": {
+    "message": "4 Personas"
+  },
+  "feature_sentiment": {
+    "message": "Sentiment"
+  },
+  "feature_links": {
+    "message": "Link Summary"
+  },
+  "stats_title": {
+    "message": "Statistics"
+  },
+  "stat_replies_label": {
+    "message": "Total Replies"
+  },
+  "stat_authors_label": {
+    "message": "Unique Users"
+  },
+  "settings_title": {
+    "message": "Settings"
+  },
+  "status_active": {
+    "message": "Extension Active"
+  },
+  "content_ai_reply_button": {
+    "message": "AI Reply"
+  },
+  "content_replying_button": {
+    "message": "Replying..."
+  },
+  "content_error_no_native_button": {
+    "message": "Could not find Twitter's reply button."
+  },
+  "content_error_no_ai_reply": {
+    "message": "Failed to get AI reply."
+  },
+  "content_error_no_author": {
+    "message": "Could not determine the tweet's author. Cannot proceed."
+  },
+  "content_tick_title_replied": {
+    "message": "You have replied to this user before."
+  },
+  "content_tick_title_not_replied": {
+    "message": "You have not replied to this user yet."
+  },
+  "notification_error_no_reply_button": {
+    "message": "Could not find reply button in notification."
+  },
+  "notification_error_no_composer": {
+    "message": "Could not find tweet composer textbox."
+  },
+  "tick_replied_today": {
+    "message": "Replied within 24 hours"
+  },
+  "tick_replied_old": {
+    "message": "Replied >24h ago"
+  },
+  "tick_not_replied": {
+    "message": "Not replied yet"
+  },
+  "popup_smart_ticks_label": {
+    "message": "Smart Ticks (24h)"
+  },
+  "popup_custom_persona_label": {
+    "message": "Custom Persona Prompt"
+  },
+  "popup_custom_persona_placeholder": {
+    "message": "e.g., You are a pirate who loves Bitcoin..."
+  },
+  "automation_title": {
+    "message": "AUTOMATION & SETTINGS"
+  },
+  "tone_label": {
+    "message": "Tone"
+  },
+  "auto_generate_label": {
+    "message": "Auto Generate"
+  },
+  "auto_like_label": {
+    "message": "Auto Like"
+  },
+  "auto_comment_label": {
+    "message": "Auto Comment"
+  },
+  "action_delay_label": {
+    "message": "Action Delay (seconds)"
+  },
+  "auto_follow_label": {
+    "message": "Auto Follow Tweet Owner"
+  },
+  "include_mention_label": {
+    "message": "Include @ Mention"
+  },
+  "bulk_auto_title": {
+    "message": "BULK AUTO COMMENT"
+  },
+  "bulk_urls_label": {
+    "message": "Paste Tweet URLs (one per line)"
+  },
+  "bulk_save_btn": {
+    "message": "Save URLs"
+  },
+  "bulk_start_btn": {
+    "message": "Start Process"
+  },
+  "bulk_clear_btn": {
+    "message": "Clear List"
+  },
+  "bulk_saved_urls": {
+    "message": "SAVED URLS"
+  },
+  "bulk_status": {
+    "message": "Status"
+  },
+  "tab_reply_mode": {
+    "message": "Reply Mode"
+  },
+  "tab_create_post": {
+    "message": "Create Post"
+  },
+  "tab_bulk_auto": {
+    "message": "Bulk Auto"
+  },
+  "viral_post_generator": {
+    "message": "Viral Post Generator"
+  },
+  "viral_hooks": {
+    "message": "Viral Hooks"
+  },
+  "generate_magic_btn": {
+    "message": "Generate Magic"
+  },
+  "topic_input_placeholder": {
+    "message": "e.g., Bitcoin ETF approval"
+  }
+}

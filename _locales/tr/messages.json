@@ -1,0 +1,188 @@
+{
+  "extName": {
+    "message": "X Reply"
+  },
+  "extDescription": {
+    "message": "Kripto ve Web3 etkileşimleri için X (Twitter) AI asistanı."
+  },
+  "popup_title": {
+    "message": "X Crypto Agent"
+  },
+  "popup_subtitle": {
+    "message": "AI Destekli Twitter Asistanı"
+  },
+  "popup_select_language": {
+    "message": "Yanıt Dili:"
+  },
+  "popup_select_persona": {
+    "message": "Karakter Seç:"
+  },
+  "popup_memory_label": {
+    "message": "Yatırım Felsefeniz:"
+  },
+  "popup_memory_placeholder": {
+    "message": "örn: 'Bitcoin maximalistiyim', 'ETH sevmiyorum'"
+  },
+  "popup_auto_reply_label": {
+    "message": "Bahsetmelere Otomatik Yanıt"
+  },
+  "popup_save_button": {
+    "message": "Ayarları Kaydet"
+  },
+  "popup_saved": {
+    "message": "Kaydedildi!"
+  },
+  "popup_save_success_alert": {
+    "message": "Ayarlar başarıyla kaydedildi!"
+  },
+  "popup_clear_history": {
+    "message": "Geçmişi Temizle"
+  },
+  "popup_clear_confirm": {
+    "message": "Tüm yanıt geçmişini silmek istediğinizden emin misiniz?"
+  },
+  "popup_cleared": {
+    "message": "Temizlendi!"
+  },
+  "features_title": {
+    "message": "Özellikler"
+  },
+  "feature_ai_reply": {
+    "message": "AI Yanıt"
+  },
+  "feature_personas": {
+    "message": "4 Karakter"
+  },
+  "feature_sentiment": {
+    "message": "Duygu Analizi"
+  },
+  "feature_links": {
+    "message": "Link Özeti"
+  },
+  "stats_title": {
+    "message": "İstatistikler"
+  },
+  "stat_replies_label": {
+    "message": "Toplam Yanıt"
+  },
+  "stat_authors_label": {
+    "message": "Benzersiz Kullanıcı"
+  },
+  "settings_title": {
+    "message": "Ayarlar"
+  },
+  "status_active": {
+    "message": "Eklenti Aktif"
+  },
+  "content_ai_reply_button": {
+    "message": "AI Yanıt"
+  },
+  "content_replying_button": {
+    "message": "Yanıtlanıyor..."
+  },
+  "content_error_no_native_button": {
+    "message": "Twitter yanıt butonu bulunamadı."
+  },
+  "content_error_no_ai_reply": {
+    "message": "AI yanıtı alınamadı."
+  },
+  "content_error_no_author": {
+    "message": "Tweet'in yazarı belirlenemedi. Devam edilemiyor."
+  },
+  "content_tick_title_replied": {
+    "message": "Bu kullanıcıya daha önce yanıt verdiniz."
+  },
+  "content_tick_title_not_replied": {
+    "message": "Bu kullanıcıya henüz yanıt vermediniz."
+  },
+  "notification_error_no_reply_button": {
+    "message": "Bildirimde yanıt butonu bulunamadı."
+  },
+  "notification_error_no_composer": {
+    "message": "Tweet yazma alanı bulunamadı."
+  },
+  "tick_replied_today": {
+    "message": "24 saat içinde yanıtlandı"
+  },
+  "tick_replied_old": {
+    "message": ">24 saat önce yanıtlandı"
+  },
+  "tick_not_replied": {
+    "message": "Henüz yanıtlanmadı"
+  },
+  "popup_smart_ticks_label": {
+    "message": "Akıllı Tikler (24s)"
+  },
+  "popup_custom_persona_label": {
+    "message": "Özel Persona Komutu"
+  },
+  "popup_custom_persona_placeholder": {
+    "message": "örn: Bitcoin seven bir korsansın..."
+  },
+  "automation_title": {
+    "message": "OTOMASYON & AYARLAR"
+  },
+  "tone_label": {
+    "message": "Ton"
+  },
+  "auto_generate_label": {
+    "message": "Otomatik Oluştur"
+  },
+  "auto_like_label": {
+    "message": "Otomatik Beğen"
+  },
+  "auto_comment_label": {
+    "message": "Otomatik Yorum"
+  },
+  "action_delay_label": {
+    "message": "İşlem Gecikmesi (saniye)"
+  },
+  "auto_follow_label": {
+    "message": "Tweet Sahibini Otomatik Takip Et"
+  },
+  "include_mention_label": {
+    "message": "@ Bahset"
+  },
+  "bulk_auto_title": {
+    "message": "TOPLU OTOMATİK YORUM"
+  },
+  "bulk_urls_label": {
+    "message": "Tweet URL'lerini Yapıştır (her satıra bir tane)"
+  },
+  "bulk_save_btn": {
+    "message": "URL'leri Kaydet"
+  },
+  "bulk_start_btn": {
+    "message": "İşlemi Başlat"
+  },
+  "bulk_clear_btn": {
+    "message": "Listeyi Temizle"
+  },
+  "bulk_saved_urls": {
+    "message": "KAYDEDİLEN URL'LER"
+  },
+  "bulk_status": {
+    "message": "Durum"
+  },
+  "tab_reply_mode": {
+    "message": "Yanıt Modu"
+  },
+  "tab_create_post": {
+    "message": "Gönderi Oluştur"
+  },
+  "tab_bulk_auto": {
+    "message": "Toplu Oto"
+  },
+  "viral_post_generator": {
+    "message": "Viral Gönderi Üretici"
+  },
+  "viral_hooks": {
+    "message": "Viral Kancalar"
+  },
+  "generate_magic_btn": {
+    "message": "Sihir Yarat"
+  },
+  "topic_input_placeholder": {
+    "message": "örn., Bitcoin ETF onayı"
+  }
+}

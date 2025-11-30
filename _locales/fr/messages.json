@@ -1,0 +1,56 @@
+{
+  "extName": {
+    "message": "X Reply"
+  },
+  "extDescription": {
+    "message": "Un agent IA pour X (Twitter) spécialisé dans les interactions Crypto et Web3."
+  },
+  "popup_title": {
+    "message": "Paramètres de l'Agent Crypto pour X"
+  },
+  "popup_select_persona": {
+    "message": "Sélectionner le Persona :"
+  },
+  "popup_memory_label": {
+    "message": "Votre Philosophie d'Investissement (Mémoire) :"
+  },
+  "popup_memory_placeholder": {
+    "message": "ex: 'Je suis un maxi de Bitcoin', 'Je n'aime pas ETH'"
+  },
+  "popup_auto_reply_label": {
+    "message": "Activer la Réponse Automatique aux Mentions :"
+  },
+  "popup_save_button": {
+    "message": "Enregistrer les Paramètres"
+  },
+  "popup_save_success_alert": {
+    "message": "Paramètres enregistrés avec succès !"
+  },
+  "content_ai_reply_button": {
+    "message": "Réponse IA"
+  },
+  "content_replying_button": {
+    "message": "Réponse en cours..."
+  },
+  "content_error_no_native_button": {
+    "message": "Impossible de trouver le bouton de réponse de Twitter."
+  },
+  "content_error_no_ai_reply": {
+    "message": "Échec de la récupération de la réponse de l'IA."
+  },
+  "content_error_no_author": {
+    "message": "Impossible de déterminer l'auteur du tweet. Opération annulée."
+  },
+  "content_tick_title_replied": {
+    "message": "Vous avez déjà répondu à cet utilisateur."
+  },
+  "content_tick_title_not_replied": {
+    "message": "Vous n'avez pas encore répondu à cet utilisateur."
+  },
+  "notification_error_no_reply_button": {
+    "message": "Impossible de trouver le bouton de réponse dans la notification."
+  },
+  "notification_error_no_composer": {
+    "message": "Impossible de trouver la zone de texte du compositeur de tweet."
+  }
+}
