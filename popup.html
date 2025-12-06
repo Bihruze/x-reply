@@ -37,7 +37,6 @@
     <button class="tab-btn" data-tab="create-tab" id="tab_create_post">Post</button>
     <button class="tab-btn" data-tab="schedule-tab" id="tab_schedule">Schedule</button>
     <button class="tab-btn" data-tab="analytics-tab" id="tab_analytics">Analytics</button>
-    <button class="tab-btn" data-tab="bulk-tab" id="tab_bulk_auto">Bulk</button>
     <button class="tab-btn" data-tab="targeting-tab" id="tab_targeting">Target</button>
   </nav>
 
@@ -278,29 +277,6 @@
         <a href="dashboard.html" target="_blank" class="btn btn-secondary" style="text-decoration: none;">
           📊 Open Full Dashboard
         </a>
-      </div>
-    </div>
-
-    <!-- BULK TAB -->
-    <div id="bulk-tab" class="tab-content" style="display: none;">
-      <div class="settings-section">
-        <div class="features-title" id="bulk_auto_title">BULK AUTO COMMENT</div>
-        <div class="form-group">
-          <label for="bulk-urls" id="bulk_urls_label">Paste Tweet URLs (one per line)</label>
-          <textarea id="bulk-urls" rows="6" placeholder="https://x.com/user/status/123..."></textarea>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button id="bulk-save-btn" class="btn btn-primary">Save URLs</button>
-          <button id="bulk-start-btn" class="btn btn-secondary">Start Process</button>
-          <button id="bulk-stop-btn" class="btn btn-danger" style="display: none;">Stop</button>
-        </div>
-        <button id="bulk-clear-btn" class="btn btn-danger" style="margin-top: 10px;">Clear List</button>
-      </div>
-
-      <div class="settings-section" style="margin-top: 20px;">
-        <div class="features-title" id="bulk_saved_urls">SAVED URLS</div>
-        <div id="bulk-url-list"></div>
-        <div id="bulk-progress" style="margin-top: 10px; font-size: 12px; color: var(--text-secondary);"></div>
       </div>
     </div>
 

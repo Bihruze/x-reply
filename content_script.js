@@ -85,69 +85,130 @@ function isWithinFollowerRange(followerCount) {
   return true;
 }
 
-// Robust DOM selector helpers with multiple fallbacks
+// === HUMAN-LIKE TIMING UTILITIES (2025 Anti-Detection) ===
+function randomDelay(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function humanizedDelay() {
+  // Simulate human reaction time (300-800ms with occasional longer pauses)
+  const base = randomDelay(300, 800);
+  const occasional = Math.random() < 0.15 ? randomDelay(500, 1500) : 0;
+  return base + occasional;
+}
+
+// Robust DOM selector helpers with multiple fallbacks (Updated December 2025)
 const DOM = {
-  // Find tweet element
+  // Find tweet element - Updated selectors for 2025 X layout
   getTweet: (element) => {
     return element.closest('article[data-testid="tweet"]') ||
            element.closest('article[role="article"]') ||
+           element.closest('[data-testid="cellInnerDiv"] article') ||
            element.closest('article');
   },
 
-  // Find all tweets
+  // Find all tweets - Added new 2025 selectors
   getAllTweets: () => {
-    return document.querySelectorAll('article[data-testid="tweet"], article[role="article"]');
+    return document.querySelectorAll(
+      'article[data-testid="tweet"], ' +
+      'article[role="article"], ' +
+      '[data-testid="cellInnerDiv"] article'
+    );
   },
 
-  // Find tweet text
+  // Find tweet text - Updated for 2025 structure
   getTweetText: (tweet) => {
     const el = tweet.querySelector('[data-testid="tweetText"]') ||
+               tweet.querySelector('[data-testid="tweet-text-show-more-link"]')?.parentElement ||
                tweet.querySelector('[lang]') ||
+               tweet.querySelector('div[dir="auto"][lang]') ||
                tweet.querySelector('div[dir="auto"]');
     return el ? el.innerText : '';
   },
 
-  // Find user names container
+  // Find user names container - Updated for 2025
   getUserNames: (tweet) => {
-    return tweet.querySelector('[data-testid="User-Names"]') ||
+    return tweet.querySelector('[data-testid="User-Name"]') ||
+           tweet.querySelector('[data-testid="User-Names"]') ||
            tweet.querySelector('div[data-testid="User-Name"]') ||
            tweet.querySelector('a[role="link"][href^="/"]')?.parentElement;
   },
 
-  // Find reply textbox
+  // Find reply textbox - Updated for 2025 compose UI
   getReplyTextbox: () => {
     return document.querySelector('div[data-testid="tweetTextarea_0"]') ||
            document.querySelector('div[data-testid="tweetTextarea_1"]') ||
+           document.querySelector('[data-testid="tweetTextarea_0RichTextInputContainer"]') ||
+           document.querySelector('[data-testid="tweetTextarea_1RichTextInputContainer"]') ||
+           document.querySelector('[role="textbox"][aria-label*="Tweet"]') ||
+           document.querySelector('[role="textbox"][aria-label*="Post"]') ||
+           document.querySelector('[role="textbox"][aria-label*="reply"]') ||
            document.querySelector('[role="textbox"][aria-label]') ||
            document.querySelector('[contenteditable="true"][role="textbox"]');
   },
 
-  // Find post/reply button
+  // Find post/reply button - Updated for 2025 X button variants
   getPostButton: () => {
     return document.querySelector('button[data-testid="tweetButton"]') ||
            document.querySelector('button[data-testid="tweetButtonInline"]') ||
+           document.querySelector('[data-testid="tweetButton"]') ||
+           document.querySelector('[data-testid="tweetButtonInline"]') ||
            document.querySelector('[data-testid="toolBar"] button[type="button"]:not([aria-label])') ||
-           document.querySelector('button[data-testid="reply"]');
+           document.querySelector('button[data-testid="reply"]') ||
+           // New 2025 selectors
+           document.querySelector('[aria-label*="Post"][role="button"]') ||
+           document.querySelector('[aria-label*="Reply"][role="button"]');
   },
 
-  // Find native reply button in tweet
+  // Find native reply button in tweet - Updated for 2025 swipe-to-reply UI
   getNativeReplyButton: (tweet) => {
     return tweet.querySelector('button[data-testid="reply"]') ||
+           tweet.querySelector('[data-testid="reply"]') ||
            tweet.querySelector('[aria-label*="Reply"]') ||
-           tweet.querySelector('[aria-label*="reply"]');
+           tweet.querySelector('[aria-label*="reply"]') ||
+           tweet.querySelector('[aria-label*="Yanıtla"]'); // Turkish
   },
 
-  // Find actions bar in tweet
+  // Find actions bar in tweet - Updated for 2025
   getActionsBar: (tweet) => {
-    return tweet.querySelector('[role="group"]') ||
-           tweet.querySelector('[aria-label*="actions"]')?.parentElement;
+    return tweet.querySelector('[role="group"][id]') ||
+           tweet.querySelector('[role="group"]') ||
+           tweet.querySelector('[aria-label*="actions"]')?.parentElement ||
+           tweet.querySelector('[data-testid="tweet"] > div > div:last-child');
   },
 
-  // Find verified badge
+  // Find verified badge - Updated for 2025 badge variants
   getVerifiedBadge: (tweet) => {
     return tweet.querySelector('[data-testid="icon-verified"]') ||
+           tweet.querySelector('[data-testid="verificationBadge"]') ||
            tweet.querySelector('svg[aria-label*="Verified"]') ||
-           tweet.querySelector('[aria-label*="verified"]');
+           tweet.querySelector('svg[aria-label*="verified"]') ||
+           tweet.querySelector('[aria-label*="verified"]') ||
+           tweet.querySelector('[aria-label*="Doğrulanmış"]'); // Turkish
+  },
+
+  // NEW: Find like button - for auto-like feature
+  getLikeButton: (tweet) => {
+    return tweet.querySelector('button[data-testid="like"]') ||
+           tweet.querySelector('[data-testid="like"]') ||
+           tweet.querySelector('[aria-label*="Like"]') ||
+           tweet.querySelector('[aria-label*="Beğen"]'); // Turkish
+  },
+
+  // NEW: Check if already liked
+  isLiked: (tweet) => {
+    return tweet.querySelector('button[data-testid="unlike"]') ||
+           tweet.querySelector('[data-testid="unlike"]') ||
+           tweet.querySelector('[aria-label*="Unlike"]') ||
+           tweet.querySelector('[aria-label*="Beğeniyi"]'); // Turkish
+  },
+
+  // NEW: Find repost button
+  getRepostButton: (tweet) => {
+    return tweet.querySelector('button[data-testid="retweet"]') ||
+           tweet.querySelector('[data-testid="retweet"]') ||
+           tweet.querySelector('[aria-label*="Repost"]') ||
+           tweet.querySelector('[aria-label*="repost"]');
   }
 };
 
@@ -377,9 +438,19 @@ function addReplyButton(tweetElement) {
   }
 }
 
+// Track if a reply is currently being processed to prevent duplicates
+let isReplyInProgress = false;
+
 // Helper function to handle reply generation
 async function handleReplyClick(tweetElement, button, intent) {
   console.log("🎯 handleReplyClick triggered!");
+
+  // DUPLICATE PREVENTION: Check if already processing a reply
+  if (isReplyInProgress) {
+    console.log("⚠️ Reply already in progress, ignoring duplicate click");
+    return;
+  }
+  isReplyInProgress = true;
 
   const originalText = button.innerText;
   button.innerText = intent ? `${getIntentIcon(intent)} Thinking...` : "Replying...";
@@ -391,6 +462,7 @@ async function handleReplyClick(tweetElement, button, intent) {
     alert("Could not determine tweet author");
     button.innerText = originalText;
     button.disabled = false;
+    isReplyInProgress = false; // Reset lock on early return
     return;
   }
 
@@ -402,17 +474,17 @@ async function handleReplyClick(tweetElement, button, intent) {
   });
 
   if (settings.autoLike) {
-    const likeButton = tweetElement.querySelector('button[data-testid="like"]') ||
-                       tweetElement.querySelector('[data-testid="like"]');
+    const likeButton = DOM.getLikeButton(tweetElement);
     if (likeButton) {
-      // Check if not already liked
-      const isLiked = tweetElement.querySelector('button[data-testid="unlike"]') ||
-                      tweetElement.querySelector('[data-testid="unlike"]');
-      if (!isLiked) {
+      // Check if not already liked using new DOM helper
+      const alreadyLiked = DOM.isLiked(tweetElement);
+      if (!alreadyLiked) {
         console.log('❤️ Auto Like: Liking the original post...');
+        // Human-like delay before liking
+        await new Promise(r => setTimeout(r, humanizedDelay()));
         likeButton.click();
-        // Wait a bit after liking
-        await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
+        // Wait a bit after liking with variation
+        await new Promise(r => setTimeout(r, randomDelay(500, 1200)));
         console.log('✅ Like completed');
       } else {
         console.log('ℹ️ Post already liked');
@@ -420,13 +492,15 @@ async function handleReplyClick(tweetElement, button, intent) {
     }
   }
 
-  // Open reply box
+  // Open reply box with human-like timing
   const nativeReplyButton = DOM.getNativeReplyButton(tweetElement);
   if (nativeReplyButton) {
     console.log('📝 Opening reply box...');
+    // Add human-like delay before clicking
+    await new Promise(r => setTimeout(r, humanizedDelay()));
     nativeReplyButton.click();
-    // Wait for reply box to open
-    await new Promise(r => setTimeout(r, 800));
+    // Wait for reply box to open with variation
+    await new Promise(r => setTimeout(r, randomDelay(800, 1500)));
   }
 
   console.log("📤 Sending message to service worker...");
@@ -468,6 +542,9 @@ async function handleReplyClick(tweetElement, button, intent) {
   } catch (error) {
     console.error("❌ Error sending message:", error);
     alert("Error: " + error.message);
+  } finally {
+    // ALWAYS reset the lock
+    isReplyInProgress = false;
   }
 
   button.innerText = "AI Reply";
@@ -727,9 +804,10 @@ async function forceClickPostButton() {
     if (postButton && !postButton.disabled) {
       // Button is enabled!
       if (!clickAttempted) {
-        // Short delay before clicking (1 second)
-        console.log(`⏳ Clicking in 1s...`);
-        await new Promise(r => setTimeout(r, 1000));
+        // Human-like delay before clicking (1-2.5 seconds with variation)
+        const clickDelay = randomDelay(1000, 2500);
+        console.log(`⏳ Clicking in ${clickDelay}ms...`);
+        await new Promise(r => setTimeout(r, clickDelay));
       }
 
       console.log('🖱️ Clicking post button...');

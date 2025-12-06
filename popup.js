@@ -66,9 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
         create_btn: "✨ Generate Post",
         create_generating: "Generating...",
         schedule_btn: "📅 Schedule",
-        bulk_save_btn: "Save URLs",
-        bulk_start_btn: "Start Process",
-        bulk_clear_btn: "Clear List",
         analyze_btn: "Analyze",
         analyzing_btn: "Analyzing...",
         suggest_btn: "Suggest",
@@ -76,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
         copy: "Copy",
         copied: "Copied",
         schedule_delete_btn: "Delete",
-        bulk_no_urls: "No URLs saved",
         schedule_empty: "No scheduled posts",
         style_error: "Error: ",
         unknown_error: "Unknown error",
@@ -93,9 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
         create_btn: "✨ Post Oluştur",
         create_generating: "Oluşturuluyor...",
         schedule_btn: "📅 Zamanla",
-        bulk_save_btn: "URL'leri Kaydet",
-        bulk_start_btn: "Başlat",
-        bulk_clear_btn: "Temizle",
         analyze_btn: "Analiz Et",
         analyzing_btn: "Analiz Ediliyor...",
         suggest_btn: "Öner",
@@ -103,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
         copy: "Kopyala",
         copied: "Kopyalandı",
         schedule_delete_btn: "Sil",
-        bulk_no_urls: "Kayıtlı URL yok",
         schedule_empty: "Zamanlanmış post yok",
         style_error: "Hata: ",
         unknown_error: "Bilinmeyen hata",
@@ -129,17 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const scheduleBtn = document.getElementById('schedule-btn');
     if (scheduleBtn) scheduleBtn.textContent = getMsg("schedule_btn");
 
-    const bulkSaveBtn = document.getElementById('bulk-save-btn');
-    if (bulkSaveBtn) bulkSaveBtn.textContent = getMsg("bulk_save_btn");
-
-    const bulkStartBtn = document.getElementById('bulk-start-btn');
-    if (bulkStartBtn) bulkStartBtn.textContent = getMsg("bulk_start_btn");
-
-    const bulkClearBtn = document.getElementById('bulk-clear-btn');
-    if (bulkClearBtn) bulkClearBtn.textContent = getMsg("bulk_clear_btn");
-
     // Refresh lists to update empty states
-    loadSavedUrls();
     loadScheduledPosts();
   }
 
@@ -353,128 +335,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         list.appendChild(div);
       });
-    });
-  }
-
-  // --- Feature: Bulk Auto Comment ---
-  const bulkSaveBtn = document.getElementById('bulk-save-btn');
-  const bulkStartBtn = document.getElementById('bulk-start-btn');
-  const bulkStopBtn = document.getElementById('bulk-stop-btn');
-  const bulkClearBtn = document.getElementById('bulk-clear-btn');
-  const bulkUrlsInput = document.getElementById('bulk-urls');
-  const bulkList = document.getElementById('bulk-url-list');
-  const bulkProgress = document.getElementById('bulk-progress');
-
-  function loadSavedUrls() {
-    if (!bulkList) return;
-    chrome.storage.local.get({ bulkUrls: [], bulkQueue: [], bulkIndex: 0 }, (data) => {
-      const urls = data.bulkUrls || [];
-      const queue = data.bulkQueue || [];
-      const index = data.bulkIndex || 0;
-
-      if (urls.length === 0) {
-        bulkList.textContent = getMsg("bulk_no_urls");
-      } else {
-        bulkList.innerHTML = urls.map((url, i) =>
-          `<div style="padding:4px 0; border-bottom:1px solid var(--border-color); font-size:12px;">${i + 1}. ${url.substring(0, 40)}...</div>`
-        ).join('');
-      }
-
-      // Show/hide stop button and progress based on queue state
-      if (queue.length > 0 && index < queue.length) {
-        // Process is running
-        if (bulkStartBtn) bulkStartBtn.style.display = 'none';
-        if (bulkStopBtn) bulkStopBtn.style.display = 'inline-block';
-        if (bulkProgress) bulkProgress.textContent = `Progress: ${index}/${queue.length} completed`;
-      } else {
-        // Process not running
-        if (bulkStartBtn) bulkStartBtn.style.display = 'inline-block';
-        if (bulkStopBtn) bulkStopBtn.style.display = 'none';
-        if (bulkProgress) bulkProgress.textContent = queue.length > 0 ? `Completed: ${index}/${queue.length}` : '';
-      }
-    });
-  }
-
-  if (bulkSaveBtn) {
-    bulkSaveBtn.addEventListener('click', () => {
-      const text = bulkUrlsInput?.value?.trim();
-      if (!text) return;
-      const urls = text.split('\n').map(u => u.trim()).filter(u => u.includes('x.com') || u.includes('twitter.com'));
-      if (urls.length === 0) {
-        alert('No valid URLs found');
-        return;
-      }
-      chrome.storage.local.set({ bulkUrls: urls }, () => {
-        bulkUrlsInput.value = '';
-        loadSavedUrls();
-        alert(`Saved ${urls.length} URLs`);
-      });
-    });
-  }
-
-  if (bulkStartBtn) {
-    bulkStartBtn.addEventListener('click', async () => {
-      const data = await chrome.storage.local.get({ bulkUrls: [] });
-      if (!data.bulkUrls || data.bulkUrls.length === 0) {
-        alert('No URLs to process');
-        return;
-      }
-
-      // Check if Auto Comment is enabled - required for bulk process
-      const settings = await chrome.storage.sync.get({ autoComment: false });
-      if (!settings.autoComment) {
-        const enableAutoComment = confirm(
-          'Auto Comment must be enabled for bulk process to work.\n\n' +
-          'Do you want to enable Auto Comment now?'
-        );
-        if (enableAutoComment) {
-          chrome.storage.sync.set({ autoComment: true });
-          if (autoCommentToggle) autoCommentToggle.checked = true;
-        } else {
-          return;
-        }
-      }
-
-      if (confirm(`Start processing ${data.bulkUrls.length} tweets?\n\nMake sure Auto Comment is ON in the Reply tab.`)) {
-        chrome.runtime.sendMessage({ action: 'startBulkProcess', urls: data.bulkUrls });
-        bulkStartBtn.style.display = 'none';
-        if (bulkStopBtn) bulkStopBtn.style.display = 'inline-block';
-        if (bulkProgress) bulkProgress.textContent = 'Starting...';
-      }
-    });
-  }
-
-  if (bulkStopBtn) {
-    bulkStopBtn.addEventListener('click', async () => {
-      if (confirm('Stop bulk process?')) {
-        chrome.runtime.sendMessage({ action: 'stopBulkProcess' });
-        bulkStopBtn.style.display = 'none';
-        if (bulkStartBtn) bulkStartBtn.style.display = 'inline-block';
-        if (bulkProgress) bulkProgress.textContent = 'Stopped';
-      }
-    });
-  }
-
-  // Refresh progress periodically when popup is open
-  setInterval(() => {
-    loadSavedUrls();
-  }, 3000);
-
-  if (bulkClearBtn) {
-    bulkClearBtn.addEventListener('click', () => {
-      if (confirm('Clear all URLs?')) {
-        chrome.storage.local.set({
-          bulkUrls: [],
-          bulkQueue: [],
-          bulkIndex: 0,
-          bulkResults: [],
-          bulkStopped: true
-        }, () => {
-          // Also clear the alarm
-          chrome.alarms.clear("processBulkQueue");
-          loadSavedUrls();
-        });
-      }
     });
   }
 
