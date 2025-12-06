@@ -42,8 +42,6 @@ X Crypto Agent is a Chrome browser extension that uses Google Gemini AI to autom
 - **Auto-Comment** - Post replies automatically with configurable delays
 - **Auto-Like** - Automatically like the original post when replying
 - **Scheduled Posts** - Schedule tweets for future posting
-- **Bulk Auto-Comment** - Process multiple tweet URLs in queue with 2-minute intervals
-- **Stop/Pause Bulk Process** - Stop bulk processing anytime with progress tracking
 
 ### Personalization
 - **Multiple Personas** - Choose from Degen, Analyst, Roast, Maxi, Builder, Neutral, or Custom
@@ -129,7 +127,7 @@ This extension requires a **Google Gemini API Key** to function.
 
 1. Open the `x-reply` folder
 2. Open `service_worker.js` in a text editor (VS Code, Notepad++, etc.)
-3. Find **line 384**:
+3. Find **line 98**:
    ```javascript
    const API_KEY = ""; // <-- PASTE YOUR API KEY HERE
    ```
@@ -169,7 +167,6 @@ Click the extension icon in your toolbar to access:
 | **Post** | Generate project posts, viral content, and hashtags |
 | **Schedule** | Schedule tweets for future posting |
 | **Analytics** | View your reply statistics and activity |
-| **Bulk** | Process multiple tweet URLs at once with start/stop control |
 | **Target** | Set follower ranges, limits, and user lists |
 
 ### Persona Options
@@ -215,19 +212,6 @@ Click the extension icon in your toolbar to access:
 | **Include @mention** | Include author's @username in reply |
 | **Action Delay** | Delay between automated actions (5-60 seconds) |
 
-### Bulk Tab Options
-
-| Setting | Description |
-|---------|-------------|
-| **Tweet URLs** | Paste multiple tweet URLs (one per line) |
-| **Save URLs** | Save URLs to the queue |
-| **Start Process** | Begin processing all URLs |
-| **Stop** | Stop the bulk process at any time |
-| **Clear List** | Clear all saved URLs and stop processing |
-| **Progress** | Shows X/Y completed status |
-
-> **Note:** Bulk processing has a 2-minute delay between each tweet for human-like behavior.
-
 ### Targeting Tab Options
 
 | Setting | Description |
@@ -256,7 +240,7 @@ When browsing Twitter/X, you'll see colored dot indicators next to usernames:
 ```
 x-reply/
 ├── manifest.json          # Extension configuration
-├── service_worker.js      # Backend logic & API integration (API_KEY on line 384)
+├── service_worker.js      # Backend logic & API integration (API_KEY on line 98)
 ├── content_script.js      # DOM manipulation & UI injection
 ├── popup.html             # Main popup interface
 ├── popup.js               # Popup functionality
@@ -283,7 +267,7 @@ x-reply/
 ## Troubleshooting
 
 ### "API Key not set" Error
-- Make sure you added your API key to `service_worker.js` on **line 384**
+- Make sure you added your API key to `service_worker.js` on **line 98**
 - Reload the extension after adding the key
 
 ### AI Reply Button Not Showing
@@ -361,6 +345,28 @@ Contributions are welcome! Feel free to:
 If you encounter any issues or have questions:
 1. Check the [Troubleshooting](#troubleshooting) section
 2. Open an issue on GitHub
+
+---
+
+## Changelog
+
+### v1.1.0 (December 2025)
+- **Removed:** Bulk auto-comment feature
+- **Updated:** DOM selectors for X/Twitter 2025 layout changes
+- **Added:** Human-like timing utilities for anti-detection
+- **Added:** Turkish language support for DOM selectors
+- **Fixed:** Duplicate reply prevention with improved locking mechanism
+- **Added:** New DOM helpers (getLikeButton, isLiked, getRepostButton)
+- **Improved:** Reply textbox and post button detection for latest X UI
+
+### v1.0.0 (November 2025)
+- Initial release
+- AI-powered reply generation with Google Gemini
+- Multiple personas and tone options
+- Auto-comment, auto-like features
+- Project post generator and viral hooks
+- Analytics dashboard
+- Multi-language support
 
 ---
 
